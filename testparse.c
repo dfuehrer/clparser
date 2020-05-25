@@ -1,18 +1,24 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 
 #define BUF_SIZE    1000   // yes this will probably cause me problems later, maybe ill even make it dynamic like a quitter
 #define OUTPUT_SIZE 2000   // yes this will probably cause me problems later, maybe ill even make it dynamic like a quitter
 
-char * sepBuff(char * buf, char * slBuf, char * wBuf, char type[], char ** link);
+//char * sepBuff(char * buf, char * slBuf, char * wBuf, char type[], char ** link);
+char * link(char * buf, pllist * head, char [] type);
 
 typedef struct pllist_t{
-    int slen;
+    // int slen;
+    // int singleLetter;
     char * str;
     struct pllist_t * headSame;
     struct pllist_t * nextSame;
     struct pllist_t * next;
+    //struct pllist_t * prev;
 } pllist;
+const pllist defVal;
+const pllist * const defaultValNULL = &defVal;
 
 
 // so the idea is that youll send in configuration stuffs over stdin and then have it take in the clargs as clargs and then itll output things that i guess are helpful based on the config stuffs sent in over stdin
@@ -62,10 +68,10 @@ int main(int argc, char ** argv){
     fgets(cbuf, BUF_SIZE, stdin);
     printf("%s\n", cbuf);
 
-    char slFlags[BUF_SIZE];
-    char slParams[BUF_SIZE];
-    char wFlags[BUF_SIZE];
-    char wParams[BUF_SIZE];
+    //char slFlags[BUF_SIZE];
+    //char slParams[BUF_SIZE];
+    //char wFlags[BUF_SIZE];
+    //char wParams[BUF_SIZE];
 
     for(int i = 1; i < argc; i++){
         if(argv[i][0] == '-' && argv[i][1] != '-'){
@@ -137,7 +143,115 @@ char * sepBuff(char * buf, char * slBuf, char * wBuf, char type[], char ** link)
 }
 
 
-void link(char * buf, pllist * head){
-    
+// so the idea of this is that it will go through buff and add pointers to a linked list to dostuffs
+// so im gonna need to make linked list functions to do all the linked list things like swapping pointers and stuff
+// also i might want to make it sort the linked list as it isbeing created and stuff but im not sure
+// cause sorting the list means i have to keep looping through it and that probably wont save me much inwhat i need to do later
+// i may also want to specify if itis a single letter
+// the other thing i could do is make a separate list for the single letters and words
+// i think i want separate lists for the parameters and words and have this do them separately
+// also this should probably replace spaces and commas with \0 so that it looks like a full string then it can be easily compared
+char * link(char * buf, pllist ** headptr, char [] type){
+    // create all the links and variables
+    // also figure out dynamically creating all these linked list node things
+    //int typeLen = strlen(type);
+    //char * typeptr = strstr(cbuf, type) + typeLen;
+    char * typeptr = strstr(cbuf, type);
+    if(typeptr == NULL) return strchr(buf, '\0');   // didnt find this type (not necessarily a fault but if both are missing then it doesnt work)
+    typeptr += strlen(type);
+    char * end = strchr(typeptr, ';');
+    if(end == NULL) return end;   // there has to be a semicolon to end the definition    (should check for a NULL to err immediately)
+    char * c = typeptr;
+    for(; *c == ' '; c++);
+    char * ce = c + 1;
+    pllist * lptr = *headptr;
+    // i guess for this i want different values like
+    // 1 was a space so were on   a  new set of values
+    // 2 was a comma so were on the same set of values
+    // 3 was an equals so were looking at a default val
+    // 4 was a semicolon so were done
+    // 0 means error
+    int state = 1, nextState = 0;
+    // loop throguh everything and make all the linked list stuffs
+    for(; state != 4; c++){
+        for(; isalnum(ce); ce++);
+        // set next state based on the upcoming symbol
+        nextState = setState(ce);
+        // if the next state is 0 then its an error and exit
+        if(!nextState)  return NULL;
+        // add a new node onto the linked list
+        lptr = addParam(&lptr, c, state);
+        state = nextState;  // set state for next iteration
+    }
+
+    return typeptr
 }
+
+int setState(char * c){
+    int state;
+    switch(*c){
+        case ' ':
+            state = 1;
+            *c = '\0';
+            break;
+        case ',':
+            state = 2;
+            *c = '\0';
+            break;
+        case '=':
+            state = 3;
+            *c = '\0';
+            break;
+        case ';':
+            state = 4;
+            *c = '\0';
+            break;
+        default:
+            // TODO figure out if i want to have it replace the character if its not one of these cause if so then put the *c = '\0' after the switch-case cause its all the same
+            state = 0;
+            break;
+    }
+    c++;
+    for(; *c == ' '; c++);
+    return state;
+}
+
+pllist * addParam(pllist ** lp, char * c, int state){
+    // if done (hit semicolon) then set next NULL and exit
+    if(state == 4){
+        (*lp)->next = NULL;
+        return (*lp)->next;
+    }
+    // allocate memory for next node and point at it with pp
+    pllist * pp = (pllist *) malloc(sizeof pllist);
+    //pp->prev = *lp;   // this works if the head starts out NULL cause it makes the head's prev NULL or makes a normal node the last pointer
+    // if lp is NULL then its the head i guess so set the head now
+    if(*lp == NULL){
+        *lp = pp;
+    }else{  // otherwise set the next thing
+        (*lp)->next = pp;
+    }
+    pp->str = c;
+    // if state 1 then its the first one so set the headSame to pp, if 2 or 3 then its just part so set the headSame to the last headSame
+    switch(state){
+        case 1:
+            pp->headSame = pp;
+            if((*lp)->nextSame != defaultValNULL)   (*lp)->nextSame = NULL;
+            break;
+        case 2:
+        case 3:
+            pp->headSame = (*lp)->headSame;
+            (*lp)->nextSame = pp;
+            break;
+    }
+    if(state == 3)  pp->nextSame = defaultValNULL;
+
+    return pp;
+}
+
+
+
+            
+
+
 
