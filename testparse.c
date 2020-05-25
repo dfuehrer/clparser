@@ -6,6 +6,15 @@
 
 char * sepBuff(char * buf, char * slBuf, char * wBuf, char type[], char ** link);
 
+typedef struct pllist_t{
+    int slen;
+    char * str;
+    struct pllist_t * headSame;
+    struct pllist_t * nextSame;
+    struct pllist_t * next;
+} pllist;
+
+
 // so the idea is that youll send in configuration stuffs over stdin and then have it take in the clargs as clargs and then itll output things that i guess are helpful based on the config stuffs sent in over stdin
 // theres no way that this will be overcomplicated or impossible to use or write at all
 // ill define that this can have flags and options that are set to values and a default field that everything else falls into
@@ -14,7 +23,7 @@ char * sepBuff(char * buf, char * slBuf, char * wBuf, char type[], char ** link)
 // it should go in order of the options it gets so if they contradict then itll be the last option
 // the word parameters can use a space or an = with no spaces
 // the stdin should be of the form:
-// "flags: f,flag g, qwerty h,hist; parameters: q,asdf u nothing zzz,z;"
+// "flags: f,flag g qwerty h,hist; parameters: q,asdf u nothing zzz,z;"
 // TODO figure out if i want it to implement default values and then have them set to those values if not set manually (probably -- just have it be like q,asdf=12)
 // where things that are in the same word separated by commas are the same flag or parameter (if its only 1 char its a single char - else its a -- word)
 // things after flags are flags and the stuff after parameters are the options with values to be set
@@ -126,3 +135,9 @@ char * sepBuff(char * buf, char * slBuf, char * wBuf, char type[], char ** link)
     }
     return typeptr;
 }
+
+
+void link(char * buf, pllist * head){
+    
+}
+
