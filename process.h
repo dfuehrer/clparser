@@ -11,9 +11,12 @@ typedef struct pllist_t{
     //struct pllist_t * prev;
 } pllist;
 const pllist defVal;
-const pllist * const defaultValNULL = &defVal;
+static const pllist * const defaultValNULL = &defVal;
 
-char * link(char * buf, pllist * head, char [] type);
+char * linkParams(char * buf, pllist ** head, char argType[]);
 //char * sepBuff(char * buf, char * slBuf, char * wBuf, char type[], char ** link);
+
+int setState(char * c);
+pllist ** addParam(pllist ** lp, char * c, int state);
 
 #endif

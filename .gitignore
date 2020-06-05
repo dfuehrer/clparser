@@ -4,3 +4,6 @@
 # temp files
 *.swp
 *.*~
+
+# build files
+*.o

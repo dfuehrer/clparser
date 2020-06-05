@@ -48,36 +48,92 @@
 // also TODO make sure that in the words that if allows alphanumeric and - and also when checking if its in the words, make sure it isnt a substring of another word by checking the characters on either side (for the left side need to check if the first letter is in the first position of the whole string)
 int main(int argc, char ** argv){
     // this is just for debugging
-    for(int i = 1; i < argc; i++){
-        printf("%s\n", argc[i]);
+    for(int i = 0; i < argc; i++){
+        //printf("%s\n", argv[i]);
+        puts(argv[i]);
     }
     char cbuf[BUF_SIZE];
     fgets(cbuf, BUF_SIZE, stdin);
-    printf("%s\n", cbuf);
+    //printf("%s\n", cbuf);
+    puts(cbuf);
+    printf("defaultValNULL = %x\n", defaultValNULL);
+
+    printf("printint things now\n");
+    char * ce = cbuf + strlen(cbuf);
+    pllist * flagHead = NULL, * paramHead = NULL;
+    char * ferr = linkParams(cbuf, &flagHead, "flags:");
+    puts("now were gonna go through the string i guess");
+    for(char * c = cbuf; c < ce; c++){
+        printf("%c", (*c == '\0')? '0' : *c);
+    }
+    for(char * c = cbuf; c < ce; c += strlen(c) + 1){
+        puts(c);
+    }
+
+    puts("going through the linked list now");
+    char Ns[] = "NULL";
+    char ttp[10];
+    char * ns;
+    for(pllist * lp = flagHead; lp != NULL; lp = lp->next){
+        if(!lp->nextSame)   ns = Ns;
+        else{
+            sprintf(ttp, "%x", lp->nextSame);
+            ns = ttp;
+        }
+        printf("str = %s:\tme=%x, headSame=%x, nextSame=%s,   \tnext=%x\n", lp->str, lp, lp->headSame, ns, lp->next);
+    }
+    
+    printf("ferr = %x, cbuf = %x, ce = %x\n", ferr, cbuf, ce);
+    if(ferr < cbuf || ferr > ce)    return 1;
+    char * pcbuf = ferr;
+    puts(pcbuf);
+
+    puts("params now");
+    char * perr = linkParams(pcbuf, &paramHead, "parameters:");
+    puts("just finished with params");
+    for(char * c = cbuf; c < ce; c++){
+        printf("%c", (*c == '\0')? '0' : *c);
+    }
+    for(char * c = cbuf; c < ce; c += strlen(c) + 1){
+        puts(c);
+    }
+
+    puts("going through the linked list now again");
+    printf("defaultValNULL:\t%x\n", defaultValNULL);
+    for(pllist * lp = paramHead; lp != NULL; lp = lp->next){
+        if(!lp->nextSame)   ns = Ns;
+        else{
+            sprintf(ttp, "%x", lp->nextSame);
+            ns = ttp;
+        }
+        printf("str = %s:\tme=%x, headSame=%x, nextSame=%s,   \tnext=%x\n", lp->str, lp, lp->headSame, ns, lp->next);
+    }
+    // TODO clear the memory at teh end so i dont have a memory leak
+
+
 
     //char slFlags[BUF_SIZE];
     //char slParams[BUF_SIZE];
     //char wFlags[BUF_SIZE];
     //char wParams[BUF_SIZE];
-
-    for(int i = 1; i < argc; i++){
-        if(argv[i][0] == '-' && argv[i][1] != '-'){
-            // this is a single letter flag so loop through all the next letters
-            for(char * f = argv[i][1]; *f; f++){
-                if(!isalnum(*f)){
-                    return 1;   // errror if f not alphanumeric
-                // TODO make it look specifically for the single letter flags of parameters not just in everything cause then it could find this letter in a word
-                // TODO consider making a large string and then sprintf to it and print it at the end so it doesnt stop halfway through on an error
-                }else if(strchr(flags,  *f) != NULL){
-                    printf("%c=1\n", *f);
-                }else if(strchr(params, *f) != NULL){
-                    printf("%c=%s\n", *f, argv[++i]);
-                }else{
-                    return 2;   // error if f not in flags or params
-                }
-            }
-        }
-    }
+//    for(int i = 1; i < argc; i++){
+//        if(argv[i][0] == '-' && argv[i][1] != '-'){
+//            // this is a single letter flag so loop through all the next letters
+//            for(char * f = argv[i][1]; *f; f++){
+//                if(!isalnum(*f)){
+//                    return 1;   // errror if f not alphanumeric
+//                // TODO make it look specifically for the single letter flags of parameters not just in everything cause then it could find this letter in a word
+//                // TODO consider making a large string and then sprintf to it and print it at the end so it doesnt stop halfway through on an error
+//                }else if(strchr(flags,  *f) != NULL){
+//                    printf("%c=1\n", *f);
+//                }else if(strchr(params, *f) != NULL){
+//                    printf("%c=%s\n", *f, argv[++i]);
+//                }else{
+//                    return 2;   // error if f not in flags or params
+//                }
+//            }
+//        }
+//    }
 
     return 0;
 }
