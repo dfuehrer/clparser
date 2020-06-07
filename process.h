@@ -2,6 +2,7 @@
 #define PROCESS_H
 
 typedef struct pllist_t{
+    // TODO decide if i want either, they arent really necessary at all (check if single by !str[1])
     // int slen;
     // int singleLetter;
     char * str;
@@ -14,9 +15,12 @@ const pllist defVal;
 static const pllist * const defaultValNULL = &defVal;
 
 char * linkParams(char * buf, pllist ** head, char argType[]);
-//char * sepBuff(char * buf, char * slBuf, char * wBuf, char type[], char ** link);
 
 int setState(char * c);
 pllist ** addParam(pllist ** lp, char * c, int state);
+
+void printStuffs(char * str, pllist * head);
+pllist * mtchStr(char * str, pllist * head);
+pllist * mtchChr(char   c,   pllist * head);
 
 #endif

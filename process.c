@@ -1,7 +1,7 @@
 #include <stdio.h>
-//#include <string.h>
+#include <string.h>
 #include <ctype.h>
-//#include <stdlib.h>
+#include <stdlib.h>
 #include "process.h"
 
 // so the idea of this is that it will go through buff and add pointers to a linked list to dostuffs
@@ -94,7 +94,7 @@ pllist ** addParam(pllist ** lp, char * c, int state){
     // i honestly dont want this but i think ill keep it cause its proabably safer
     if(pp == NULL){
         fprintf(stderr, "couldnt allocate, this is bad\n");
-        return pp;  // might have a problem here cause pp is NULL which makes it a single pointer
+        return (pllist **) NULL;  // might have a problem here cause pp is NULL which makes it a single pointer
     }
     pp->str = c;
     // if state 1 then its the first one so set the headSame to pp, if 2 or 3 then its just part so set the headSame to the last headSame
@@ -107,7 +107,9 @@ pllist ** addParam(pllist ** lp, char * c, int state){
         case 3:
             pp->headSame = (*lp)->headSame;
             (*lp)->nextSame = pp;
-            if(state == 3)  pp->nextSame = defaultValNULL;
+            // TODO decide if i keep the warnings or if i take off the const part of defaltVallNULL because the contents are never used so right now im just casting it so the warning goes away
+            //if(state == 3)  pp->nextSame = defaultValNULL;
+            if(state == 3)  pp->nextSame = (pllist *) defaultValNULL;
             break;
     }
 
@@ -119,4 +121,57 @@ pllist ** addParam(pllist ** lp, char * c, int state){
     //return &(*lp)->next;  // return last (current) next dbl-ptr for use next time
     return &pp->next;
 }
+
+
+
+// get the head for the flags or parameters and the string value to print
+void printStuffs(char * str, pllist * member){
+    if(str == NULL){
+        // TODO decide if this is ok since it changes the original data
+        for(pllist * tmp = member->headSame; tmp; tmp = tmp->nextSame){
+            if(tmp->nextSame == defaultValNULL){
+                str = tmp->str;
+                break;
+            }else if(tmp->next == NULL){
+                return;     // this is an error, should return something prolly
+            }
+        }
+    }
+    for(pllist * tmp = member->headSame; (tmp != NULL); tmp = tmp->nextSame){
+        // TODO decide if this is ok since it changes the original data
+        // this could be bad if you gave 2 equivalent things because it might not match the second time if you did a something -r --remove-now
+        // so probably allocate some memory temporarily or soemthing to change things in and then print that or just printf char by char
+        // the other option is changing to added everything to a massive buffer to print at the end and just replace them all in there at the end
+        // change - to _
+        for(char * c = tmp->str; *c; c++)    if(*c == '-')       *c = '_';
+        printf("eval %s=%s\n", tmp->str, str);
+        if(!tmp->nextSame){
+            return;
+        }else if(tmp->nextSame->nextSame == defaultValNULL){
+            tmp->nextSame->nextSame = NULL;
+            break;
+        }
+    }
+}
+
+// match a string to an entry in the list with head head
+// and maybe add values to end of linked list as default vlaues cause thats something
+pllist * mtchStr(char * str, pllist * head){
+    pllist * tmp = head;
+    for(; (tmp != NULL) && strcmp(str, tmp->str); tmp = tmp->next);
+    return tmp;
+}
+
+// match a character to an entry in the list with head head
+// and maybe add values to end of linked list as default vlaues cause thats something
+pllist * mtchChr(char   c,   pllist * head){
+    pllist * tmp = head;
+    for(; (tmp != NULL) && (tmp->str[1] || (c != *tmp->str)); tmp = tmp->next);
+    if(!tmp){
+        puts("never found it");
+    }
+    return tmp;
+}
+
+
 
