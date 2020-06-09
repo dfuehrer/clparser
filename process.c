@@ -144,7 +144,8 @@ void printStuffs(char * str, pllist * member){
         // the other option is changing to added everything to a massive buffer to print at the end and just replace them all in there at the end
         // change - to _
         for(char * c = tmp->str; *c; c++)    if(*c == '-')       *c = '_';
-        printf("eval %s=%s\n", tmp->str, str);
+        printf("%s=%s\n", tmp->str, str);
+        //printf("eval %s=%s\n", tmp->str, str);
         if(!tmp->nextSame){
             return;
         }else if(tmp->nextSame->nextSame == defaultValNULL){
@@ -173,5 +174,113 @@ pllist * mtchChr(char   c,   pllist * head){
     return tmp;
 }
 
+
+
+int parseArgs(int argc, char ** argv, pllist * flagHead, pllist * paramHead){
+
+    char ** defs = (char **) malloc(sizeof(char *) * (argc - 1));
+    memset(defs, (long) NULL, argc);
+    char ** thisDef = defs;
+
+    int checkFlags = 1;
+
+    for(int i = 1; i < argc; i++){
+        if(argv[i][0] == '-'){
+            if(argv[i][1] != '-'){
+                // this is a single letter flag so loop through all the next letters
+                //printf("singlet:\t");
+                //puts(argv[i]);
+                for(char * f = argv[i] + 1; *f; f++){
+                    //printf("let:\t%c\n", *f);
+                    if(!isalnum(*f)){
+                        return 1;   // errror if f not alphanumeric
+                    // TODO consider making a large string and then sprintf to it and print it at the end so it doesnt stop halfway through on an error
+                    }else if(!(*(f+1)) && ((i+1 < argc) && (argv[i+1][0] != '-'))){   // then this is a parameter
+                        pllist * tmp = mtchChr(*f, paramHead);
+                        //if(tmp == NULL){
+                        if(tmp){
+                            printStuffs(argv[++i], tmp);
+                            //printf("wtharg:\t");
+                            //puts(argv[i]);
+                            checkFlags = 0;
+                        }else{
+                            //puts("didnt find");
+                            return 2;       // didnt find it
+                        }
+                    }
+                    if(checkFlags){                                          // i think the only other option is its a flag
+                        pllist * tmp = mtchChr(*f, flagHead);
+                        //if(tmp == NULL){
+                        if(!tmp){
+                            //puts("didnt find");
+                            return 2;       // didnt find it
+                        }
+                        printStuffs("1", tmp);
+                    }
+                }
+            }else{
+                // this is a word thign
+                char * word = argv[i] + 2;
+                //printf("word:\t");
+                //puts(word);
+                int notAlnum = 0;
+                for(char * c = word; *c; c++){
+                    notAlnum += (!isalnum(*c) && (*c != '-') && (*c != '_'));
+                }
+                if(notAlnum){
+                    //puts("well its gotta be alnum");
+                    return 1;   // error if f not alphanumeric
+                // TODO consider making a large string and then sprintf to it and print it at the end so it doesnt stop halfway through on an error
+                }else if((i+1 < argc) && (argv[i+1][0] != '-')){   // then this is probably a parameter
+                    pllist * tmp = mtchStr(word, paramHead);
+                    if(tmp){
+                        printStuffs(argv[++i], tmp);
+                        //printf("wtharg:\t");
+                        //puts(argv[i]);
+                        checkFlags = 0;
+                    }else{
+                        //puts("didnt find");
+                        //return 2;       // didnt find it
+                    }
+                }
+                if(checkFlags){                                          // i think the only other option is its a flag
+                    pllist * tmp = mtchStr(word, flagHead);
+                    if(!tmp){
+                        //puts("didnt find");
+                        return 2;       // didnt find it
+                    }
+                    printStuffs("1", tmp);
+                }
+            }
+        }else{
+            // this is a default
+            //printf("default:\t");
+            *thisDef = argv[i];
+            //puts(*thisDef);
+            thisDef++;
+        }
+        checkFlags = 1;
+    }
+
+    // now print defaults values out
+    for(pllist * fp = paramHead; fp; fp = fp->next){
+        if(fp->nextSame == defaultValNULL){
+            printStuffs(fp->str, fp);
+        }
+    }
+
+    // now print out the values without parameters (defaults)
+    if(*defs){
+        // TODO I feel like defaults just isnt a good enough name here so figure something else out
+        // TODO this method with eval doesnt seem to work since there are spaces and i havent figured out how to do it
+        //printf("eval ( \"defaults='%s", *defs);
+        printf("defaults='%s", *defs);
+        for(char ** defStr = defs+1; *defStr; defStr++){
+            printf(" %s", *defStr);
+        }
+        //printf("'\" )\n");
+        printf("'\n");
+    }
+}
 
 

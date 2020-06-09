@@ -19,6 +19,8 @@ char * linkParams(char * buf, pllist ** head, char argType[]);
 int setState(char * c);
 pllist ** addParam(pllist ** lp, char * c, int state);
 
+int parseArgs(int argc, char ** argv, pllist * flagHead, pllist * paramHead);
+
 void printStuffs(char * str, pllist * head);
 pllist * mtchStr(char * str, pllist * head);
 pllist * mtchChr(char   c,   pllist * head);
