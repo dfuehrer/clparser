@@ -1,11 +1,12 @@
+CC=cc
 testparse : testparse.o process.o
-	cc process.o testparse.o -o testparse
+	$(CC) process.o testparse.o -o testparse
 
 testparse.o : testparse.c process.h
-	cc -c testparse.c
+	$(CC) -c testparse.c
 
 process.o : process.h process.c
-	cc -c process.c
+	$(CC) -c process.c
 
 PHONY : clean
 
