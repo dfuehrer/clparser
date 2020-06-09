@@ -7,6 +7,8 @@
 #define BUF_SIZE    1000   // yes this will probably cause me problems later, maybe ill even make it dynamic like a quitter
 #define OUTPUT_SIZE 2000   // yes this will probably cause me problems later, maybe ill even make it dynamic like a quitter
 
+// TODO clean up the new section and put it in a function thing
+
 
 
 
@@ -49,6 +51,8 @@
 // im not sure which is more elegant, i think the first one but the problem is that makes me have to rewrite stuffs and makes it so i work with 2 big strings rather that a big string and an array
 // i think if it hits a -- with no word after it should take that to mean everything after is default since that seems to be how most things would use it (this is less flexible in some ways but i dont want to deal with it)
 // also TODO make sure that in the words that if allows alphanumeric and - and also when checking if its in the words, make sure it isnt a substring of another word by checking the characters on either side (for the left side need to check if the first letter is in the first position of the whole string)
+// ive decided this needs a help system so probably that would be like giving one of the names and then the help for it in a big string and then passing that string into the parser with a like --helpmsgs
+// this thing needs a help and other arguments in general probably
 int main(int argc, char ** argv){
     // this is just for debugging
     // for(int i = 0; i < argc; i++){
@@ -62,16 +66,13 @@ int main(int argc, char ** argv){
     // printf("defaultValNULL = %x\n", defaultValNULL);
 
     // printf("printint things now\n");
-    // char * ce = cbuf + strlen(cbuf);
+    char * ce = cbuf + strlen(cbuf);
     pllist * flagHead = NULL, * paramHead = NULL;
     char * ferr = linkParams(cbuf, &flagHead, "flags:");
     // puts("now were gonna go through the string i guess");
     // for(char * c = cbuf; c < ce; c++){
     //     printf("%c", (*c == '\0')? '0' : *c);
     // }
-    // //for(char * c = cbuf; c < ce; c += strlen(c) + 1){
-    //     //puts(c);
-    // //}
 
     // puts("going through the linked list now");
     // char Ns[] = "NULL    ";
@@ -87,19 +88,23 @@ int main(int argc, char ** argv){
     // }
     
     // printf("ferr = %x, cbuf = %x, ce = %x\n", ferr, cbuf, ce);
-    // if(ferr < cbuf || ferr > ce)    return 1;
-    char * pcbuf = ferr;
+    if(ferr < cbuf || ferr > ce)    return 1;
+    char * pcbuf;
+    for(pcbuf = ce-1; (*pcbuf != ';') && (*pcbuf != '\0') && (pcbuf > cbuf); pcbuf--);
+    if(*pcbuf == ';'){
+        pcbuf = ferr;
+    }else if(*pcbuf == '\0'){
+        pcbuf = cbuf;
+    }else{return 1;}
     // puts(pcbuf);
 
     // puts("params now");
     char * perr = linkParams(pcbuf, &paramHead, "parameters:");
+    if(perr < cbuf || perr > ce)    return 1;
     // puts("just finished with params");
     // for(char * c = cbuf; c < ce; c++){
     //     printf("%c", (*c == '\0')? '0' : *c);
     // }
-    // //for(char * c = cbuf; c < ce; c += strlen(c) + 1){
-    //     //puts(c);
-    // //}
 
     // puts("going through the linked list now again");
     // printf("defaultValNULL:\t%x\n", defaultValNULL);
@@ -114,109 +119,9 @@ int main(int argc, char ** argv){
     // TODO clear the memory at teh end so i dont have a memory leak
 
 
-    char ** defs = (char **) malloc(sizeof(char *) * argc);
-    memset(defs, (long) NULL, argc);
-    char ** thisDef = defs;
+    int retVal = parseArgs(argc, argv, flagHead, paramHead);
 
-    int didntFind = 1;
-
-    for(int i = 1; i < argc; i++){
-        if(argv[i][0] == '-'){
-            if(argv[i][1] != '-'){
-                // this is a single letter flag so loop through all the next letters
-                //printf("singlet:\t");
-                //puts(argv[i]);
-                for(char * f = argv[i] + 1; *f; f++){
-                    //printf("let:\t%c\n", *f);
-                    if(!isalnum(*f)){
-                        return 1;   // errror if f not alphanumeric
-                    // TODO make it look specifically for the single letter flags of parameters not just in everything cause then it could find this letter in a word
-                    // TODO consider making a large string and then sprintf to it and print it at the end so it doesnt stop halfway through on an error
-                    }else if(!(*(f+1)) && ((i+1 < argc) && (argv[i+1][0] != '-'))){   // then this is a parameter
-                        pllist * tmp = mtchChr(*f, paramHead);
-                        //if(tmp == NULL){
-                        if(tmp){
-                            printStuffs(argv[++i], tmp);
-                            //printf("wtharg:\t");
-                            //puts(argv[i]);
-                            didntFind = 0;
-                        }else{
-                            //puts("didnt find");
-                            return 2;       // didnt find it
-                        }
-                    }
-                    if(didntFind){                                          // i think the only other option is its a flag
-                        pllist * tmp = mtchChr(*f, flagHead);
-                        //if(tmp == NULL){
-                        if(!tmp){
-                            //puts("didnt find");
-                            return 2;       // didnt find it
-                        }
-                        printStuffs("1", tmp);
-                    }
-                }
-            }else{
-                // this is a word thign
-                char * word = argv[i] + 2;
-                //printf("word:\t");
-                //puts(word);
-                int alnum = 0;
-                for(char * c = word; *c; c++){
-                    alnum += (!isalnum(*c) && (*c != '-') && (*c != '_'));
-                }
-                if(alnum){
-                    //puts("well its gotta be alnum");
-                    return 1;   // error if f not alphanumeric
-                // TODO consider making a large string and then sprintf to it and print it at the end so it doesnt stop halfway through on an error
-                }else if((i+1 < argc) && (argv[i+1][0] != '-')){   // then this is probably a parameter
-                    pllist * tmp = mtchStr(word, paramHead);
-                    if(tmp){
-                        printStuffs(argv[++i], tmp);
-                        //printf("wtharg:\t");
-                        //puts(argv[i]);
-                        didntFind = 0;
-                    }else{
-                        //puts("didnt find");
-                        //return 2;       // didnt find it
-                    }
-                }
-                if(didntFind){                                          // i think the only other option is its a flag
-                    pllist * tmp = mtchStr(word, flagHead);
-                    if(!tmp){
-                        //puts("didnt find");
-                        return 2;       // didnt find it
-                    }
-                    printStuffs("1", tmp);
-                }
-            }
-        }else{
-            // this is a default
-            //printf("default:\t");
-            *thisDef = argv[i];
-            //puts(*thisDef);
-            thisDef++;
-        }
-        didntFind = 1;
-    }
-
-    // now print defaults values out
-    for(pllist * fp = paramHead; fp; fp = fp->next){
-        if(fp->nextSame == defaultValNULL){
-            printStuffs(fp->str, fp);
-        }
-    }
-
-    // now print out the values without parameters (defaults)
-    if(*defs){
-        // TODO I feel like defaults just isnt a good enough name here so figure something else out
-        printf("eval defaults='%s", *defs);
-        for(char ** defStr = defs+1; *defStr; defStr++){
-            printf(" %s", *defStr);
-        }
-        printf("'\n");
-    }
-
-    return 0;
+    return retVal;
 }
             
 
