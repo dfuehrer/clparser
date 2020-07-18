@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
-#include <ctype.h>
-#include <stdlib.h>
+//#include <ctype.h>
+//#include <stdlib.h>
 #include "process.h"
 
 #define BUF_SIZE    1000   // yes this will probably cause me problems later, maybe ill even make it dynamic like a quitter
@@ -50,7 +50,6 @@
 //  (could have it assume to parse everything if there is no -- but that could be confusing if someone passes in a -- that wasnt exected and things are parsed wrong or it errors cause thats how that works)
 // im not sure which is more elegant, i think the first one but the problem is that makes me have to rewrite stuffs and makes it so i work with 2 big strings rather that a big string and an array
 // i think if it hits a -- with no word after it should take that to mean everything after is default since that seems to be how most things would use it (this is less flexible in some ways but i dont want to deal with it)
-// also TODO make sure that in the words that if allows alphanumeric and - and also when checking if its in the words, make sure it isnt a substring of another word by checking the characters on either side (for the left side need to check if the first letter is in the first position of the whole string)
 // ive decided this needs a help system so probably that would be like giving one of the names and then the help for it in a big string and then passing that string into the parser with a like --helpmsgs
 // this thing needs a help and other arguments in general probably
 int main(int argc, char ** argv){
@@ -88,7 +87,9 @@ int main(int argc, char ** argv){
     // }
     
     // printf("ferr = %x, cbuf = %x, ce = %x\n", ferr, cbuf, ce);
-    if(ferr < cbuf || ferr > ce)    return 1;
+    // TODO dont error yet, not finding is only bad if we find neither
+    int noflag = 0;
+    if(ferr < cbuf || ferr > ce)    noflag = 1;
     char * pcbuf;
     for(pcbuf = ce-1; (*pcbuf != ';') && (*pcbuf != '\0') && (pcbuf > cbuf); pcbuf--);
     if(*pcbuf == ';'){
@@ -100,7 +101,8 @@ int main(int argc, char ** argv){
 
     // puts("params now");
     char * perr = linkParams(pcbuf, &paramHead, "parameters:");
-    if(perr < cbuf || perr > ce)    return 1;
+    // if didnt find params and no flag then return 1 this is bad
+    if((perr < cbuf || perr > ce) && noflag)    return 3;
     // puts("just finished with params");
     // for(char * c = cbuf; c < ce; c++){
     //     printf("%c", (*c == '\0')? '0' : *c);
@@ -116,10 +118,12 @@ int main(int argc, char ** argv){
     //     }
     //     printf("str = %s:\tme=%x, headSame=%x, nextSame=%s, next=%x\n", lp->str, lp, lp->headSame, ns, lp->next);
     // }
-    // TODO clear the memory at teh end so i dont have a memory leak
 
 
     int retVal = parseArgs(argc, argv, flagHead, paramHead);
+
+    clearMems(flagHead);
+    clearMems(paramHead);
 
     return retVal;
 }

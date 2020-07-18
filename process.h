@@ -2,9 +2,6 @@
 #define PROCESS_H
 
 typedef struct pllist_t{
-    // TODO decide if i want either, they arent really necessary at all (check if single by !str[1])
-    // int slen;
-    // int singleLetter;
     char * str;
     struct pllist_t * headSame;
     struct pllist_t * nextSame;
@@ -18,6 +15,8 @@ char * linkParams(char * buf, pllist ** head, char argType[]);
 
 int setState(char * c);
 pllist ** addParam(pllist ** lp, char * c, int state);
+
+void clearMems(pllist * head);
 
 int parseArgs(int argc, char ** argv, pllist * flagHead, pllist * paramHead);
 

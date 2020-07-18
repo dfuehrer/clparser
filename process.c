@@ -122,6 +122,14 @@ pllist ** addParam(pllist ** lp, char * c, int state){
     return &pp->next;
 }
 
+void clearMems(pllist * head){
+    pllist * next;
+    for(pllist * tmp = head; tmp; tmp = next){
+        next = tmp->next;
+        free(tmp);
+    }
+}
+
 
 
 // get the head for the flags or parameters and the string value to print
@@ -132,8 +140,9 @@ void printStuffs(char * str, pllist * member){
             if(tmp->nextSame == defaultValNULL){
                 str = tmp->str;
                 break;
-            }else if(tmp->next == NULL){
-                return;     // this is an error, should return something prolly
+            }else if(tmp->nextSame == NULL){
+                str = "1";
+                //return;     // TODO this is an error, should return something prolly
             }
         }
     }
@@ -142,6 +151,7 @@ void printStuffs(char * str, pllist * member){
         // this could be bad if you gave 2 equivalent things because it might not match the second time if you did a something -r --remove-now
         // so probably allocate some memory temporarily or soemthing to change things in and then print that or just printf char by char
         // the other option is changing to added everything to a massive buffer to print at the end and just replace them all in there at the end
+        // but what if i change the pointers on both at once
         // change - to _
         for(char * c = tmp->str; *c; c++)    if(*c == '-')       *c = '_';
         printf("%s=%s\n", tmp->str, str);
@@ -168,9 +178,6 @@ pllist * mtchStr(char * str, pllist * head){
 pllist * mtchChr(char   c,   pllist * head){
     pllist * tmp = head;
     for(; (tmp != NULL) && (tmp->str[1] || (c != *tmp->str)); tmp = tmp->next);
-    if(!tmp){
-        puts("never found it");
-    }
     return tmp;
 }
 
@@ -205,7 +212,7 @@ int parseArgs(int argc, char ** argv, pllist * flagHead, pllist * paramHead){
                             checkFlags = 0;
                         }else{
                             //puts("didnt find");
-                            return 2;       // didnt find it
+                            //return 2;       // didnt find it
                         }
                     }
                     if(checkFlags){                                          // i think the only other option is its a flag
@@ -281,6 +288,8 @@ int parseArgs(int argc, char ** argv, pllist * flagHead, pllist * paramHead){
         //printf("'\" )\n");
         printf("'\n");
     }
+    free(defs);
+
 }
 
 
