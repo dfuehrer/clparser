@@ -4,6 +4,8 @@
 # temp files
 *.swp
 *.*~
+*.vim
 
 # build files
 *.o
+clparser

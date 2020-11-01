@@ -8,6 +8,15 @@
 #define OUTPUT_SIZE 2000   // yes this will probably cause me problems later, maybe ill even make it dynamic like a quitter
 
 // TODO clean up the new section and put it in a function thing
+// TODO itd be cool if there were negation switches that if you gave them they just negate the other automatically (they cant both have the same value)
+//  this would make it so that i dont have to worry about logic of opposing flags in sh, its done automatically
+//  additionally this means that the last switch is always the most important, not whatever is chosen in the program
+//      this means you can alias something with flags and if a flag you give later contradicts it uses that flag
+// TODO it seems to die if no flags in spec
+// TODO it seems to die if only give defualts
+// TODO give some sort of option to have the defaults split by something so that i can preserve whitespace
+// TODO probably print out helpful errors when it dies
+// TODO prolly add in lists by separating by commas or something (not exactly sure if this is helpful or anything but)
 
 
 

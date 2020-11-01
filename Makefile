@@ -1,15 +1,22 @@
-CC=cc
-testparse : testparse.o process.o
-	$(CC) process.o testparse.o -o testparse
+include config.mk
 
-testparse.o : testparse.c process.h
-	$(CC) -c testparse.c
+SRC = clparser.c process.c
+OBJ = ${SRC:.c=.o}
 
-process.o : process.h process.c
-	$(CC) -c process.c
+clparser : ${OBJ}
+	$(CC) -o $@ ${OBJ}
 
-PHONY : clean
+.c.o:
+	${CC} -c $<
+
+${OBJ}: process.h config.mk
+
+PHONY : clean install
 
 clean :
-	rm -f testparse.o process.o testparse
+	rm -f ${OBJ} clparser
 	
+install : clparser
+	mkdir -p ${DESTDIR}${PREFIX}/bin
+	cp -f clparser ${DESTDIR}${PREFIX}/bin
+	chmod 755 ${DESTDIR}${PREFIX}/bin/clparser
