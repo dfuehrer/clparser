@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include "process.h"
 
+
+const pllist * const defaultValNULL = &defVal;
+
 // so the idea of this is that it will go through buff and add pointers to a linked list to dostuffs
 // so im gonna need to make linked list functions to do all the linked list things like swapping pointers and stuff
 // also i might want to make it sort the linked list as it isbeing created and stuff but im not sure
@@ -50,6 +53,10 @@ char * linkParams(char * buf, pllist ** headptr, char argType[]){
     return end + 1;
 }
 
+// TODO if after an equals dont change the state till you see a space
+//  and then within that if there are quotes then wait till after the closing quote to quit from the space
+//  if you wanted a ; you would also need to quote it
+//  but this would allow you to put symbols and stuff in the default values so you dont have to set them later in bash cause who wants to do that
 int setState(char * c){
     int state;
     switch(*c){

@@ -8,8 +8,9 @@ typedef struct pllist_t{
     struct pllist_t * next;
     //struct pllist_t * prev;
 } pllist;
-const pllist defVal;
-static const pllist * const defaultValNULL = &defVal;
+static const pllist defVal;
+// TODO figure out how to make this not error in gcc
+extern const pllist * const defaultValNULL;
 
 char * linkParams(char * buf, pllist ** head, char argType[]);
 

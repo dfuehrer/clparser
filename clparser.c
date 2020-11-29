@@ -12,11 +12,16 @@
 //  this would make it so that i dont have to worry about logic of opposing flags in sh, its done automatically
 //  additionally this means that the last switch is always the most important, not whatever is chosen in the program
 //      this means you can alias something with flags and if a flag you give later contradicts it uses that flag
+//      i can do this by just setting both at the same time, set the other to '' or something (can do something like asdf=)
+//  my biggest issue with this right now is that i dont really know how i want to do it in the spec (my current thought is something like:
+//      flags: a,asdf b,qwer=-a;
+//      to make a opposite of b
 // TODO it seems to die if no flags in spec
 // TODO it seems to die if only give defualts
 // TODO give some sort of option to have the defaults split by something so that i can preserve whitespace
 // TODO probably print out helpful errors when it dies
 // TODO prolly add in lists by separating by commas or something (not exactly sure if this is helpful or anything but)
+// TODO fix the bugs with gcc
 
 
 
@@ -46,7 +51,7 @@
 //  nothing=sure
 //  defaults="who even cares"
 // if called with arguments "-fgq whatever --qwerty --nothing=sure who even cares
-// theoretically im thinking this way you run it like $(echo "..." | parse $@) and itll set the variables accordingly so you can use them without doing any parsing
+// theoretically im thinking this way you run it like eval $(echo "..." | parse $@) and itll set the variables accordingly so you can use them without doing any parsing
 // error codes:
 // 1 not alphanumeric flags or parameter
 // 2 flags or parameter not defined
@@ -69,6 +74,13 @@ int main(int argc, char ** argv){
     // }
     char cbuf[BUF_SIZE];
     fgets(cbuf, BUF_SIZE, stdin);
+    //gets_s(cbuf, BUF_SIZE);
+    /* for(char ** argp = argv; argp < argv + argc; argp++){ */
+    /*     if(!(strcmp(*argp, "--help") && strcmp(*argp, "-h"))){ */
+    /*         printf("%s", cbuf); */
+    /*         return 0; */
+    /*     } */
+    /* } */
     //printf("%s\n", cbuf);
     // puts(cbuf);
     // printf("defaultValNULL = %x\n", defaultValNULL);
@@ -105,13 +117,21 @@ int main(int argc, char ** argv){
         pcbuf = ferr;
     }else if(*pcbuf == '\0'){
         pcbuf = cbuf;
-    }else{return 1;}
+    }else{
+        // TODO figure out what this error is
+        fprintf(stderr, "ill figure this error out later");
+        return 1;
+    }
     // puts(pcbuf);
 
     // puts("params now");
     char * perr = linkParams(pcbuf, &paramHead, "parameters:");
     // if didnt find params and no flag then return 1 this is bad
-    if((perr < cbuf || perr > ce) && noflag)    return 3;
+    if((perr < cbuf || perr > ce) && noflag){
+        // TODO figure out error
+        fprintf(stderr, "ill figure this error out later");
+        return 3;
+    }
     // puts("just finished with params");
     // for(char * c = cbuf; c < ce; c++){
     //     printf("%c", (*c == '\0')? '0' : *c);
@@ -130,6 +150,7 @@ int main(int argc, char ** argv){
 
 
     int retVal = parseArgs(argc, argv, flagHead, paramHead);
+    // TODO do some stuffs and figure out the errors
 
     clearMems(flagHead);
     clearMems(paramHead);
