@@ -23,7 +23,7 @@ asdf=whatever
 nothing=sure
 defaults="who even cares"
 ```
-if called with arguments "-fgq whatever --qwerty --nothing=sure who even cares"
+if called with arguments "-fgq whatever --qwerty --nothing sure who even cares"
 
 * I know i could have done this in awk or bash builtin stuff like anyone else
     (or used someone elses)
@@ -32,4 +32,6 @@ if called with arguments "-fgq whatever --qwerty --nothing=sure who even cares"
 
 
 ## TODO
+- a lot
+    - see the comments at the top of clparser.c (tho i havent kept up with them)
 

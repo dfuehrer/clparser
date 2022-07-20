@@ -20,8 +20,14 @@
 // TODO it seems to die if only give defualts
 // TODO give some sort of option to have the defaults split by something so that i can preserve whitespace
 // TODO probably print out helpful errors when it dies
-// TODO prolly add in lists by separating by commas or something (not exactly sure if this is helpful or anything but)
-// TODO fix the bugs with gcc
+//  only if it actually prevents execution of the script
+// TODO prolly add in lists by separating by commas or something
+//  not exactly sure if this is helpful or anything but
+//  also lists arent really a thing in posix shell so i dont know what id expand them to
+//  using argparse in python lists are done with separate arguments so that might be a better way if i actually had a use for lists
+// TODO use set in bash to turn defaults into $@ somehow
+//  i didn't know this but its just that easy to set $@ and if you use quotes it sets the params with the magic whitespace properties
+//  this could be an option if i ever get the options stuffs working in clparser
 
 
 
@@ -72,9 +78,12 @@ int main(int argc, char ** argv){
     //     //printf("%s\n", argv[i]);
     //     puts(argv[i]);
     // }
+
+    // TODO probably replace with getline so i can read arbitrary length
+    //  cause if im not reading arbitrary length i should actually error here if its longer than BUF_SIZE
     char cbuf[BUF_SIZE];
     fgets(cbuf, BUF_SIZE, stdin);
-    //gets_s(cbuf, BUF_SIZE);
+    // TODO do something like this (until proper help support is added) if they dont include a -h/--help
     /* for(char ** argp = argv; argp < argv + argc; argp++){ */
     /*     if(!(strcmp(*argp, "--help") && strcmp(*argp, "-h"))){ */
     /*         printf("%s", cbuf); */
@@ -86,6 +95,8 @@ int main(int argc, char ** argv){
     // printf("defaultValNULL = %x\n", defaultValNULL);
 
     // printf("printint things now\n");
+    // let me think about what im doing here
+    // ferr is a pointer to the char after the ; ending the flags or whatever error happened
     char * ce = cbuf + strlen(cbuf);
     pllist * flagHead = NULL, * paramHead = NULL;
     char * ferr = linkParams(cbuf, &flagHead, "flags:");
@@ -109,16 +120,24 @@ int main(int argc, char ** argv){
     
     // printf("ferr = %x, cbuf = %x, ce = %x\n", ferr, cbuf, ce);
     // TODO dont error yet, not finding is only bad if we find neither
+    // if the ferr is before or after the buff then we know theres no flags
     int noflag = 0;
     if(ferr < cbuf || ferr > ce)    noflag = 1;
     char * pcbuf;
+    // go back to find the ; but also stop if left the string
+    // honestly not sure this works so lets think about what im looking for here
     for(pcbuf = ce-1; (*pcbuf != ';') && (*pcbuf != '\0') && (pcbuf > cbuf); pcbuf--);
+
+    // if found the ; then set buff to the ferr (after flags)
+    // but what if the ferr was an error sounds like itd fail
     if(*pcbuf == ';'){
         pcbuf = ferr;
+    // seriously how could it ever be \0 i started at 1 before the end and worked back
     }else if(*pcbuf == '\0'){
         pcbuf = cbuf;
     }else{
         // TODO figure out what this error is
+        // TODO figure out the error numbers
         fprintf(stderr, "ill figure this error out later");
         return 1;
     }
@@ -149,7 +168,7 @@ int main(int argc, char ** argv){
     // }
 
 
-    int retVal = parseArgs(argc, argv, flagHead, paramHead);
+    Errors retVal = parseArgs(argc, argv, flagHead, paramHead);
     // TODO do some stuffs and figure out the errors
 
     clearMems(flagHead);
@@ -157,7 +176,7 @@ int main(int argc, char ** argv){
 
     return retVal;
 }
-            
+
 
 
 

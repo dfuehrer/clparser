@@ -33,21 +33,22 @@ char * linkParams(char * buf, pllist ** headptr, char argType[]){
     // 3 was an equals so were looking at a default val
     // 4 was a semicolon so were done
     // 0 means error
-    int state = 1, nextState = 1;
+    State state = Space, nextState = Space;
     // loop throguh everything and make all the linked list stuffs
     //printf("state = %d, nextState = %d\n", state, nextState);
-    for(; state != 4; ce = (c = ce + 1) + 1){
+    // k im reading this and holy cow "ce = (c = ce + 1) + 1" is aweful
+    for(; state != Semicolon; ce = (c = ce + 1) + 1){
         state = nextState;  // set state for next iteration
         // TODO check for whitespace etc or decide its not allowed and then error gracefully
         for(; isalnum(*ce) || (*ce == '-') || (*ce == '_'); ce++);
         // set next state based on the upcoming symbol
         nextState = setState(ce);
         // if the next state is 0 then its an error and exit unless were on the last line
-        if(!nextState && (state != 4))  return NULL;
+        if(!nextState && (state != Semicolon))  return NULL;
         // add a new node onto the linked list
         lpptr = addParam(lpptr, c, state);
         // TODO check for error from addParam output and then return with death if so
-        
+
     }
 
     return end + 1;
@@ -57,29 +58,29 @@ char * linkParams(char * buf, pllist ** headptr, char argType[]){
 //  and then within that if there are quotes then wait till after the closing quote to quit from the space
 //  if you wanted a ; you would also need to quote it
 //  but this would allow you to put symbols and stuff in the default values so you dont have to set them later in bash cause who wants to do that
-int setState(char * c){
-    int state;
+State setState(char * c){
+    State state;
     switch(*c){
         case ' ':
-            state = 1;
+            state = Space;
             *c = '\0';
             break;
         case ',':
-            state = 2;
+            state = Comma;
             *c = '\0';
             break;
         case '=':
-            state = 3;
+            state = Equals;
             *c = '\0';
             break;
         case ';':
-            state = 4;
+            state = Semicolon;
             *c = '\0';
             break;
         default:
             // TODO figure out if i want to have it replace the character if its not one of these cause if so then put the *c = '\0' after the switch-case cause its all the same
             // it probably doesnt matter really but the : on the second section would be replaced and then that would be a tad weird
-            state = 0;
+            state = Error;
             break;
     }
     c++;
@@ -90,9 +91,9 @@ int setState(char * c){
 // add a node to the linked list with all the pointers set and stuff
 // base the pointers off the state, quit when state is 4
 // pretty happy with this, only conditionals are from state dictating extra "Same" pointers and the malloc error checking
-pllist ** addParam(pllist ** lp, char * c, int state){
+pllist ** addParam(pllist ** lp, char * c, State state){
     // if done (hit semicolon) then set next NULL and exit
-    if(state == 4){
+    if(state == Semicolon){
         (*lp)->next = NULL;
         return &(*lp)->next;
     }
@@ -106,17 +107,17 @@ pllist ** addParam(pllist ** lp, char * c, int state){
     pp->str = c;
     // if state 1 then its the first one so set the headSame to pp, if 2 or 3 then its just part so set the headSame to the last headSame
     switch(state){
-        case 1:
+        case Space:
             pp->headSame = pp;
             if((*lp) && ((*lp)->nextSame != defaultValNULL))   (*lp)->nextSame = NULL;
             break;
-        case 2:
-        case 3:
+        case Comma:
+        case Equals:
             pp->headSame = (*lp)->headSame;
             (*lp)->nextSame = pp;
             // TODO decide if i keep the warnings or if i take off the const part of defaltVallNULL because the contents are never used so right now im just casting it so the warning goes away
-            //if(state == 3)  pp->nextSame = defaultValNULL;
-            if(state == 3)  pp->nextSame = (pllist *) defaultValNULL;
+            //if(state == Equals)  pp->nextSame = defaultValNULL;
+            if(state == Equals)  pp->nextSame = (pllist *) defaultValNULL;
             break;
     }
 
@@ -161,7 +162,7 @@ void printStuffs(char * str, pllist * member){
         // but what if i change the pointers on both at once
         // change - to _
         for(char * c = tmp->str; *c; c++)    if(*c == '-')       *c = '_';
-        printf("%s=%s\n", tmp->str, str);
+        printf("%s='%s'\n", tmp->str, str);
         //printf("eval %s=%s\n", tmp->str, str);
         if(!tmp->nextSame){
             return;
@@ -190,7 +191,7 @@ pllist * mtchChr(char   c,   pllist * head){
 
 
 
-int parseArgs(int argc, char ** argv, pllist * flagHead, pllist * paramHead){
+Errors parseArgs(int argc, char ** argv, pllist * flagHead, pllist * paramHead){
 
     char ** defs = (char **) malloc(sizeof(char *) * (argc - 1));
     memset(defs, (long) NULL, argc);
@@ -207,7 +208,7 @@ int parseArgs(int argc, char ** argv, pllist * flagHead, pllist * paramHead){
                 for(char * f = argv[i] + 1; *f; f++){
                     //printf("let:\t%c\n", *f);
                     if(!isalnum(*f)){
-                        return 1;   // errror if f not alphanumeric
+                        return NotAlnum;   // errror if f not alphanumeric
                     // TODO consider making a large string and then sprintf to it and print it at the end so it doesnt stop halfway through on an error
                     }else if(!(*(f+1)) && ((i+1 < argc) && (argv[i+1][0] != '-'))){   // then this is a parameter
                         pllist * tmp = mtchChr(*f, paramHead);
@@ -219,7 +220,7 @@ int parseArgs(int argc, char ** argv, pllist * flagHead, pllist * paramHead){
                             checkFlags = 0;
                         }else{
                             //puts("didnt find");
-                            //return 2;       // didnt find it
+                            //return DidNotFind;       // didnt find it
                         }
                     }
                     if(checkFlags){                                          // i think the only other option is its a flag
@@ -227,7 +228,7 @@ int parseArgs(int argc, char ** argv, pllist * flagHead, pllist * paramHead){
                         //if(tmp == NULL){
                         if(!tmp){
                             //puts("didnt find");
-                            return 2;       // didnt find it
+                            return DidNotFind;       // didnt find it
                         }
                         printStuffs("1", tmp);
                     }
@@ -243,7 +244,7 @@ int parseArgs(int argc, char ** argv, pllist * flagHead, pllist * paramHead){
                 }
                 if(notAlnum){
                     //puts("well its gotta be alnum");
-                    return 1;   // error if f not alphanumeric
+                    return NotAlnum;   // error if f not alphanumeric
                 // TODO consider making a large string and then sprintf to it and print it at the end so it doesnt stop halfway through on an error
                 }else if((i+1 < argc) && (argv[i+1][0] != '-')){   // then this is probably a parameter
                     pllist * tmp = mtchStr(word, paramHead);
@@ -254,14 +255,14 @@ int parseArgs(int argc, char ** argv, pllist * flagHead, pllist * paramHead){
                         checkFlags = 0;
                     }else{
                         //puts("didnt find");
-                        //return 2;       // didnt find it
+                        //return DidNotFind;       // didnt find it
                     }
                 }
                 if(checkFlags){                                          // i think the only other option is its a flag
                     pllist * tmp = mtchStr(word, flagHead);
                     if(!tmp){
                         //puts("didnt find");
-                        return 2;       // didnt find it
+                        return DidNotFind;       // didnt find it
                     }
                     printStuffs("1", tmp);
                 }
