@@ -9,7 +9,7 @@ clparser : ${OBJ}
 .c.o:
 	${CC} -c $<
 
-${OBJ}: process.h config.mk
+${OBJ}: process.h
 
 PHONY : clean install
 
