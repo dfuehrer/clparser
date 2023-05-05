@@ -64,12 +64,10 @@ void addMapMembers(map_t * map, void * data, const char fmt[], ...){
         }else if(!key){
             return error(6, 0, "map key cannot be NULL");
         }
-        printf("key '%*s'\n", len, key);
         // set this key in the node
         node->names[ind] = key;
         node->nameLens[ind] = len;
         ++node->namesLen;
-        printf("key '%*s'\n", node->nameLens[ind], node->names[ind]);
         // hash the str to get ind into array
         uint8_t hash = getHash(key, len);
         //printf("key: '%.*s', hash: %d\n", len, key, hash);
@@ -148,7 +146,7 @@ void printMap(map_t * map){
             printf("data %p\n", node->data);
             // pop off all the nodes so we dont try to free them
             for(int j = 0; j < node->namesLen; ++j){
-                printf("node %d key %d %*s\n", i, j, node->nameLens[j], node->names[j]);
+                printf("node %d key %d %.*s\n", i, j, node->nameLens[j], node->names[j]);
             }
         }
     }
@@ -157,12 +155,10 @@ void printMap(map_t * map){
 
 void freeMap(map_t * map){
     for(int i = 0; i < MAP_ARR_LEN; ++i){
-        printf("map ind %d\n", i);
         for(MapNode * node = map->ptrArray[i]; node != NULL; node = map->ptrArray[i]){
-            printf("node %p\n", node);
             // pop off all the nodes so we dont try to free them
             for(int j = 0; j < node->namesLen; ++j){
-                printf("gonna pop node %d %*s\n", i, node->nameLens[j], node->names[j]);
+                //printf("gonna pop node %d %.*s\n", i, node->nameLens[j], node->names[j]);
                 popMapNode(map, node->names[j], node->nameLens[j]);
             }
             // free the node datas
@@ -182,7 +178,7 @@ MapNode * popMapNode(map_t * map, const char * key, int len){
     for(node = map->ptrArray[hash]; node != NULL; prev_ptr = &(*prev_ptr)->next, node = node->next){
         for(int i = 0; i < node->namesLen; ++i){
             if(node->nameLens[i] == len && !strncmp(key, node->names[i], MIN(len, node->nameLens[i]))){
-                (*prev_ptr)->next = node->next;
+                (*prev_ptr) = node->next;
                 return node;
             }
         }
