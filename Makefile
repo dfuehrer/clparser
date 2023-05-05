@@ -11,6 +11,8 @@ clparser : ${OBJ}
 
 ${OBJ}: process.h
 
+testmap: map.o
+
 PHONY : clean install
 
 clean :

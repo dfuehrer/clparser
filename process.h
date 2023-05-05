@@ -23,6 +23,7 @@ typedef enum State_t {
 } State;
 // i need to define what errors are
 typedef enum Errors_t {
+    Success = 0,
     NotAlnum = 1,
     DidNotFind,
 } Errors;
