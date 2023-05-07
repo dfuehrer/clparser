@@ -44,16 +44,16 @@ void initMap(map_t * map);
 // fmt is a "format string" that specifies what types the variadic keys are
 // %S is a StringView, %s is a char[] for the key, %d or %i is an int for the string length
 // length must follow a string, otherwise it will error
-void addMapMembers(map_t * map, const void * data_addr, const char fmt[], ...);
-//void addMapMember (map_t * map, const void * data_addr, StringView key);
-void addMapMember (map_t * map, const void * data_addr, const char * key, int len);
+void addMapMembers            (map_t * map, const void * data_addr, const char fmt[], ...);
+//void addMapMember             (map_t * map, const void * data_addr, StringView key);
+void addMapMember             (map_t * map, const void * data_addr, const char * key, int len);
 
-const void * setMapMemberData(map_t * map, const void * data_addr, const char * key, int len);
+const void * setMapMemberData (map_t * map, const void * data_addr, const char * key, int len);
 
-const void * getMapMemberData(map_t * map, const char * key, int len);
-int  getMapMember_int (map_t * map, const char * key, int len);
-bool getMapMember_bool(map_t * map, const char * key, int len);
-char getMapMember_char(map_t * map, const char * key, int len);
+const void * getMapMemberData (map_t * map, const char * key, int len);
+int          getMapMember_int (map_t * map, const char * key, int len);
+bool         getMapMember_bool(map_t * map, const char * key, int len);
+char         getMapMember_char(map_t * map, const char * key, int len);
 
 //void delMembers(map_t map, ...);
 void freeMap(map_t * map);

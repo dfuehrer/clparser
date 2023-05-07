@@ -81,8 +81,12 @@ int main(int argc, char ** argv){
 
     // TODO probably replace with getline so i can read arbitrary length
     //  cause if im not reading arbitrary length i should actually error here if its longer than BUF_SIZE
-    char cbuf[BUF_SIZE];
-    fgets(cbuf, BUF_SIZE, stdin);
+    char * cbuf = NULL;
+    size_t n = 0;
+    ssize_t len;
+    len = getline(&cbuf, &n, stdin);
+    // TODO check that there wasnt an error
+
     // TODO do something like this (until proper help support is added) if they dont include a -h/--help
     /* for(char ** argp = argv; argp < argv + argc; argp++){ */
     /*     if(!(strcmp(*argp, "--help") && strcmp(*argp, "-h"))){ */
@@ -97,7 +101,7 @@ int main(int argc, char ** argv){
     // printf("printint things now\n");
     // let me think about what im doing here
     // ferr is a pointer to the char after the ; ending the flags or whatever error happened
-    char * ce = cbuf + strlen(cbuf);
+    char * ce = cbuf + len;
     pllist * flagHead = NULL, * paramHead = NULL;
     char * ferr = linkParams(cbuf, &flagHead, "flags:");
     // puts("now were gonna go through the string i guess");

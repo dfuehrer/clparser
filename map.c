@@ -134,6 +134,7 @@ void freeMap(map_t * map){
         }
     }
     printf("just freed the map nodes\n");
+    // TODO add a feature to go have a function to handle the data before freeing these pointers
     for(const void * const * * ptr = ptrArray; *ptr != NULL; ++ptr){
         free((void *)*ptr);
     }

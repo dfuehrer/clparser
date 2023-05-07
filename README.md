@@ -1,12 +1,12 @@
 # clparser
 * This is supposed to be a basic parser of command line arguments for bash scripts
-* The idea is that you give it a spec in a certain format and and command line arguments that were inputted to the script and it parses them 
-    by turning them into simple ```variablename=value```
+* The idea is that you give it a spec in a certain format and and command line arguments that were inputted to the script and it parses them
+    by turning them into simple `variablename=value`
 * This makes it so that you can just call it with 
 ```bash
 eval $(echo 'spec' | clparser "$@")
 ```
-* This way it will call the ```variablename=value``` and you can go on without having to worry about possitioning or anything
+* This way it will call the `variablename=value` and you can go on without having to worry about possitioning or anything
 
 * where spec looks something like
 "flags: f,flag g qwerty h,hist; parameters: q,asdf u nothing zzz,z;"

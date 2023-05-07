@@ -8,7 +8,7 @@ typedef struct pllist_t{
     struct pllist_t * next;
     //struct pllist_t * prev;
 } pllist;
-static const pllist defVal;
+extern const pllist defVal;
 // TODO figure out how to make this not error in gcc
 extern const pllist * const defaultValNULL;
 
@@ -23,6 +23,7 @@ typedef enum State_t {
 } State;
 // i need to define what errors are
 typedef enum Errors_t {
+    NoError = 0,
     NotAlnum = 1,
     DidNotFind,
 } Errors;

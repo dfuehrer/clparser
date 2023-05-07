@@ -5,6 +5,7 @@
 #include "process.h"
 
 
+const pllist defVal = {};
 const pllist * const defaultValNULL = &defVal;
 
 // so the idea of this is that it will go through buff and add pointers to a linked list to dostuffs
@@ -36,11 +37,12 @@ char * linkParams(char * buf, pllist ** headptr, char argType[]){
     State state = Space, nextState = Space;
     // loop throguh everything and make all the linked list stuffs
     //printf("state = %d, nextState = %d\n", state, nextState);
-    // k im reading this and holy cow "ce = (c = ce + 1) + 1" is aweful
-    for(; state != Semicolon; ce = (c = ce + 1) + 1){
+    // k im reading this and holy cow "ce = (c = ce + 1) + 1" is awful
+    //for(; state != Semicolon; ce = (c = ce + 1) + 1){
+    for(; state != Semicolon; c = ++ce, ++ce){
         state = nextState;  // set state for next iteration
         // TODO check for whitespace etc or decide its not allowed and then error gracefully
-        for(; isalnum(*ce) || (*ce == '-') || (*ce == '_'); ce++);
+        for(; isalnum(*ce) || (*ce == '-') || (*ce == '_'); ++ce);
         // set next state based on the upcoming symbol
         nextState = setState(ce);
         // if the next state is 0 then its an error and exit unless were on the last line
@@ -83,8 +85,8 @@ State setState(char * c){
             state = Error;
             break;
     }
-    c++;
-    for(; *c == ' '; c++);
+    //c++;
+    //for(; *c == ' '; c++);
     return state;
 }
 
@@ -99,13 +101,12 @@ pllist ** addParam(pllist ** lp, char * c, State state){
     }
     // allocate memory for next node and point at it with pp
     pllist * pp = (pllist *) malloc(sizeof(pllist));
-    // i honestly dont want this but i think ill keep it cause its proabably safer
     if(pp == NULL){
         fprintf(stderr, "couldnt allocate, this is bad\n");
         return (pllist **) NULL;  // might have a problem here cause pp is NULL which makes it a single pointer
     }
     pp->str = c;
-    // if state 1 then its the first one so set the headSame to pp, if 2 or 3 then its just part so set the headSame to the last headSame
+    // if state Space then its the first one so set the headSame to pp, if Comma or Equals then its just part so set the headSame to the last headSame
     switch(state){
         case Space:
             pp->headSame = pp;
@@ -118,6 +119,8 @@ pllist ** addParam(pllist ** lp, char * c, State state){
             // TODO decide if i keep the warnings or if i take off the const part of defaltVallNULL because the contents are never used so right now im just casting it so the warning goes away
             //if(state == Equals)  pp->nextSame = defaultValNULL;
             if(state == Equals)  pp->nextSame = (pllist *) defaultValNULL;
+            break;
+        default:
             break;
     }
 
@@ -298,6 +301,7 @@ Errors parseArgs(int argc, char ** argv, pllist * flagHead, pllist * paramHead){
     }
     free(defs);
 
+    return NoError;
 }
 
 
