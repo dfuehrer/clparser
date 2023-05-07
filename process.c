@@ -16,6 +16,9 @@ const pllist * const defaultValNULL = &defVal;
 // the other thing i could do is make a separate list for the single letters and words
 // i think i want separate lists for the parameters and words and have this do them separately
 // also this should probably replace spaces and commas with \0 so that it looks like a full string then it can be easily compared
+// TODO actually rework the linked list stuff to use the maps
+// then parse the args by setting stuff in the maps and getting stuff from the maps
+// TODO also make a handy function to easily add values from args to the list? (for C insterface that doesnt.need to parse a string)
 char * linkParams(char * buf, pllist ** headptr, char argType[]){
     // create all the links and variables
     // also figure out dynamically creating all these linked list node things
@@ -121,6 +124,7 @@ pllist ** addParam(pllist ** lp, char * c, State state){
             if(state == Equals)  pp->nextSame = (pllist *) defaultValNULL;
             break;
         default:
+            // this should not be possible, maybe error
             break;
     }
 
@@ -301,7 +305,7 @@ Errors parseArgs(int argc, char ** argv, pllist * flagHead, pllist * paramHead){
     }
     free(defs);
 
-    return NoError;
+    return Success;
 }
 
 
