@@ -1,7 +1,7 @@
 include config.mk
 
 SRC = clparser.c process.c
-OBJ = ${SRC:.c=.o}
+OBJ = ${SRC:.c=.o} map.o
 
 clparser : ${OBJ}
 	$(CC) -o $@ ${OBJ}

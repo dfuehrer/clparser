@@ -72,7 +72,7 @@
 // i think if it hits a -- with no word after it should take that to mean everything after is default since that seems to be how most things would use it (this is less flexible in some ways but i dont want to deal with it)
 // ive decided this needs a help system so probably that would be like giving one of the names and then the help for it in a big string and then passing that string into the parser with a like --helpmsgs
 // this thing needs a help and other arguments in general probably
-int main(int argc, char ** argv){
+int main(int argc, const char * const argv[]){
     // this is just for debugging
     // for(int i = 0; i < argc; i++){
     //     //printf("%s\n", argv[i]);
@@ -86,6 +86,9 @@ int main(int argc, char ** argv){
     ssize_t len;
     len = getline(&cbuf, &n, stdin);
     // TODO check that there wasnt an error
+    map_t flagMap, paramMap;
+    initMap(&flagMap);
+    initMap(&paramMap);
 
     // TODO do something like this (until proper help support is added) if they dont include a -h/--help
     /* for(char ** argp = argv; argp < argv + argc; argp++){ */
@@ -102,8 +105,10 @@ int main(int argc, char ** argv){
     // let me think about what im doing here
     // ferr is a pointer to the char after the ; ending the flags or whatever error happened
     char * ce = cbuf + len;
-    pllist * flagHead = NULL, * paramHead = NULL;
-    char * ferr = linkParams(cbuf, &flagHead, "flags:");
+    //pllist * flagHead = NULL, * paramHead = NULL;
+    //char * ferr = linkParams(cbuf, &flagHead, "flags:");
+    // find all flag params, make the default value "0" (false)
+    char * ferr = linkParams(cbuf, &flagMap, "flags:", "0");
     // puts("now were gonna go through the string i guess");
     // for(char * c = cbuf; c < ce; c++){
     //     printf("%c", (*c == '\0')? '0' : *c);
@@ -126,31 +131,39 @@ int main(int argc, char ** argv){
     // TODO dont error yet, not finding is only bad if we find neither
     // if the ferr is before or after the buff then we know theres no flags
     int noflag = 0;
-    if(ferr < cbuf || ferr > ce)    noflag = 1;
-    char * pcbuf;
-    // go back to find the ; but also stop if left the string
-    // honestly not sure this works so lets think about what im looking for here
-    for(pcbuf = ce-1; (*pcbuf != ';') && (*pcbuf != '\0') && (pcbuf > cbuf); pcbuf--);
-
-    // if found the ; then set buff to the ferr (after flags)
-    // but what if the ferr was an error sounds like itd fail
-    if(*pcbuf == ';'){
-        pcbuf = ferr;
-    // seriously how could it ever be \0 i started at 1 before the end and worked back
-    }else if(*pcbuf == '\0'){
-        pcbuf = cbuf;
-    }else{
-        // TODO figure out what this error is
-        // TODO figure out the error numbers
-        fprintf(stderr, "ill figure this error out later");
-        return 1;
+    if(ferr == NULL || ferr <= cbuf || ferr > ce){
+        noflag = 1;
     }
-    // puts(pcbuf);
+    char * pcbuf;
+    //// go back to find the ; but also stop if left the string
+    //// honestly not sure this works so lets think about what im looking for here
+    //for(pcbuf = ce-1; (*pcbuf != ';') && (*pcbuf != '\0') && (pcbuf > cbuf); --pcbuf);
+
+    //// if found the ; then set buff to the ferr (after flags)
+    //// but what if the ferr was an error sounds like itd fail
+    //if(*pcbuf == ';'){
+    //    pcbuf = ferr;
+    //// seriously how could it ever be \0 i started at 1 before the end and worked back
+    //}else if(*pcbuf == '\0'){
+    //    pcbuf = cbuf;
+    //}else{
+    //    // TODO figure out what this error is
+    //    // TODO figure out the error numbers
+    //    fprintf(stderr, "ill figure this error out later");
+    //    return 1;
+    //}
+    //// puts(pcbuf);
+
+    // find the last ; and see if ferr is there or not
+    for(pcbuf = ce-1; (*pcbuf != ';') && (*pcbuf != '\0') && (pcbuf > cbuf); --pcbuf);
+    // if ferr (end of flags) at pcbuf (last ;) then params should be at the beginning, otherwise start at ferr
+    pcbuf = (pcbuf+1 == ferr) ? cbuf : ferr;
 
     // puts("params now");
-    char * perr = linkParams(pcbuf, &paramHead, "parameters:");
+    //char * perr = linkParams(pcbuf, &paramHead, "parameters:");
+    char * perr = linkParams(pcbuf, &paramMap, "parameters:", NULL);
     // if didnt find params and no flag then return 1 this is bad
-    if((perr < cbuf || perr > ce) && noflag){
+    if((perr == NULL || perr <= cbuf || perr > ce) && noflag){
         // TODO figure out error
         fprintf(stderr, "ill figure this error out later");
         return 3;
@@ -171,12 +184,16 @@ int main(int argc, char ** argv){
     //     printf("str = %s:\tme=%x, headSame=%x, nextSame=%s, next=%x\n", lp->str, lp, lp->headSame, ns, lp->next);
     // }
 
-
-    Errors retVal = parseArgs(argc, argv, flagHead, paramHead);
+    //Errors retVal = parseArgs(argc, argv, flagHead, paramHead);
+    Errors retVal = parseArgsPrint(argc, argv, &flagMap, &paramMap);
     // TODO do some stuffs and figure out the errors
 
-    clearMems(flagHead);
-    clearMems(paramHead);
+    //clearMems(flagHead);
+    //clearMems(paramHead);
+    freeMap(&flagMap);
+    freeMap(&paramMap);
+
+    free(cbuf);
 
     return retVal;
 }

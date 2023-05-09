@@ -1,6 +1,8 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
+#include "map.h"
+
 typedef struct pllist_t{
     char * str;
     struct pllist_t * headSame;
@@ -28,14 +30,17 @@ typedef enum Errors_t {
     DidNotFind,
 } Errors;
 
-char * linkParams(char * buf, pllist ** head, char argType[]);
+char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue);
 
 State setState(char * c);
 pllist ** addParam(pllist ** lp, char * c, State state);
 
 void clearMems(pllist * head);
 
-Errors parseArgs(int argc, char ** argv, pllist * flagHead, pllist * paramHead);
+Errors parseArgsOld(int argc, char ** argv, pllist * flagHead, pllist * paramHead);
+Errors parseArgs(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * defaultValues[]);
+Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap);
+Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, void * flagValue, const char * defaultValues[], bool print);
 
 void printStuffs(char * str, pllist * head);
 pllist * mtchStr(char * str, pllist * head);

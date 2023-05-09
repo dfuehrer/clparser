@@ -7,6 +7,7 @@
 #include <stdio.h>
 
 uint8_t getHash(const char * key, int len);
+bool addMapKey(map_t * map, MapNode * node, StringView sv, int * ind_ptr);
 
 // initialize map memory to all 0s
 void initMap(map_t * map){
@@ -20,10 +21,9 @@ void addMapMembers(map_t * map, void * data, const char fmt[], ...){
     va_list args;
     va_start(args, fmt);
     // key and len args for str (stringview same)
-    const char * key = NULL;
-    int len = 0;
     StringView sv = {.str = NULL, .len = 0};
     bool addedMember = false;
+    int ind = 0;
 
     // create node for this data, set data to data, next to null
     MapNode * node = (MapNode *) calloc(1, sizeof (MapNode));
@@ -37,58 +37,25 @@ void addMapMembers(map_t * map, void * data, const char fmt[], ...){
     // loop over items in format to figure out what the keys are
     // format d/i for int len, s for char * str, S for string view
     // % optional (ignored)
-    int ind = 0;
     for(const char * fp = fmt; *fp; ++fp){
         switch(*fp){
             case '%':
                 continue;
             case 'S':
                 sv = va_arg(args, StringView);
-                key = sv.str;
-                len = sv.len;
                 break;
             case 'i':
             case 'd':
-                len = va_arg(args, int);
+                sv.len = va_arg(args, int);
                 break;
             case 's':
-                key = va_arg(args, const char *);
+                sv.str = va_arg(args, char *);
                 continue;
             default:
                 return error(5, 0, "map member fmt str '%s' invalid: '%c' unrecognized should be s, i, d, or S", fmt, *fp);
         }
 
-        // TODO prolly make len optional (or write wrapper func to only pass in strs and use strlen
-        if(len <= 0){
-            return error(6, 0, "map key length cannot be 0 (length should be specified after key)");
-        }else if(!key){
-            return error(6, 0, "map key cannot be NULL");
-        }
-        // set this key in the node
-        node->names[ind] = key;
-        node->nameLens[ind] = len;
-        ++node->namesLen;
-        // hash the str to get ind into array
-        uint8_t hash = getHash(key, len);
-        //printf("key: '%.*s', hash: %d\n", len, key, hash);
-
-        // TODO consider modding (%) hash at the end to get it within the range of the size of the mapArray
-        //  how things are set up now, hash cannot be longer so this step would either be ignored by the compiler or more likely waste computation
-        //  maybe just bitmask to size since i used a power of 2?
-        //  or just cazt to uint8_t in my case?
-
-        // add node to map
-        // if a node is already at this ind, set this node as the new head of th linked list
-        if(map->ptrArray[hash]){
-            node->next = map->ptrArray[hash];
-        }
-        map->ptrArray[hash] = node;
-
-        ++ind;
-        ++map->len;
-        addedMember = true;
-        len = 0;
-        key = NULL;
+        addedMember = addMapKey(map, node, sv, &ind);
         sv = (StringView){.str = NULL, .len = 0};
     }
     if(!addedMember){
@@ -96,6 +63,65 @@ void addMapMembers(map_t * map, void * data, const char fmt[], ...){
     }
 
     va_end(args);
+}
+
+// add arbitrary number of keys to map to a data ptr
+void addMapMembers_fromList(map_t * map, void * data, llist_t * head, int numKeys){
+    // key and len args for str (stringview same)
+    bool addedMember = false;
+    int ind = 0;
+
+    // create node for this data, set data to data, next to null
+    MapNode * node = (MapNode *) calloc(1, sizeof (MapNode));
+    node->data = data;
+    node->next = NULL;
+    node->namesLen = 0;
+    node->names = (const char * *) calloc(numKeys, sizeof (char *));
+    node->nameLens = (int *) calloc(numKeys, sizeof (int *));
+
+    // loop over items in format to figure out what the keys are
+    // format d/i for int len, s for char * str, S for string view
+    // % optional (ignored)
+    for(llist_t * keyNode = head; ind < numKeys && keyNode != NULL; keyNode = keyNode->next){
+        addedMember = addMapKey(map, node, keyNode->sv, &ind);
+    }
+    if(!addedMember){
+        return error(6, 0, "map key needs at least 1 str,len pair to add a member");
+    }
+}
+
+bool addMapKey(map_t * map, MapNode * node, StringView sv, int * ind_ptr){
+    // TODO prolly make len optional (or write wrapper func to only pass in strs and use strlen
+    if(sv.len <= 0){
+        error(6, 0, "map key length cannot be 0 (length should be specified after key)");
+        return false;
+    }else if(!sv.str){
+        error(6, 0, "map key cannot be NULL");
+        return false;
+    }
+    // set this key in the node
+    node->names[*ind_ptr] = sv.str;
+    node->nameLens[*ind_ptr] = sv.len;
+    ++node->namesLen;
+    // hash the str to get ind into array
+    uint8_t hash = getHash(sv.str, sv.len);
+    //printf("key: '%.*s', hash: %d\n", len, key, hash);
+
+    // TODO consider modding (%) hash at the end to get it within the range of the size of the mapArray
+    //  how things are set up now, hash cannot be longer so this step would either be ignored by the compiler or more likely waste computation
+    //  maybe just bitmask to size since i used a power of 2?
+    //  or just cazt to uint8_t in my case?
+
+    // add node to map
+    // if a node is already at this ind, set this node as the new head of th linked list
+    if(map->ptrArray[hash]){
+        node->next = map->ptrArray[hash];
+    }
+    map->ptrArray[hash] = node;
+
+    ++(*ind_ptr);
+    ++map->len;
+    return true;
 }
 
 MapNode * getMapNode(const map_t * map, const char * key, int len){
@@ -144,7 +170,6 @@ void printMap(map_t * map){
         for(MapNode * node = map->ptrArray[i]; node != NULL; node = node->next){
             printf("node %p\n", node);
             printf("data %p\n", node->data);
-            // pop off all the nodes so we dont try to free them
             for(int j = 0; j < node->namesLen; ++j){
                 printf("node %d key %d %.*s\n", i, j, node->nameLens[j], node->names[j]);
             }
@@ -152,6 +177,14 @@ void printMap(map_t * map){
     }
 }
 
+void iterMap(map_t * map, mapIterFuncType mapIterFunc){
+    // TODO maybe have some way of indicating the first time or something (maybe just pass in i as well)
+    for(int i = 0; i < MAP_ARR_LEN; ++i){
+        for(MapNode * node = map->ptrArray[i]; node != NULL; node = node->next){
+            mapIterFunc(map, node);
+        }
+    }
+}
 
 void freeMap(map_t * map){
     for(int i = 0; i < MAP_ARR_LEN; ++i){
