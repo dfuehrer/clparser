@@ -113,6 +113,7 @@ int main(int argc, const char * const argv[]){
     // for(char * c = cbuf; c < ce; c++){
     //     printf("%c", (*c == '\0')? '0' : *c);
     // }
+    printMap(&flagMap);
 
     // puts("going through the linked list now");
     // char Ns[] = "NULL    ";
@@ -163,6 +164,7 @@ int main(int argc, const char * const argv[]){
     //char * perr = linkParams(pcbuf, &paramHead, "parameters:");
     char * perr = linkParams(pcbuf, &paramMap, "parameters:", NULL);
     // if didnt find params and no flag then return 1 this is bad
+    printMap(&paramMap);
     if((perr == NULL || perr <= cbuf || perr > ce) && noflag){
         // TODO figure out error
         fprintf(stderr, "ill figure this error out later");
