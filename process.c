@@ -147,6 +147,7 @@ void printKeyValues(const MapNode * node){
         // print out the key='value' or key="$i" in POSIX sh synax
         // TODO make a way to select which syntax to print out in
         switch(node->type){
+            // TODO maybe make sure the strings are ' escaped
             case STR:
                 printf("%.*s='%s'\n", node->nameLens[i], str, (char *) node->data);
                 break;
@@ -154,7 +155,7 @@ void printKeyValues(const MapNode * node){
                 printf("%.*s='%.*s'\n", node->nameLens[i], str, ((StringView *) node->data)->len, ((StringView *) node->data)->str);
                 break;
             case BOOL:
-                printf("%.*s='%s'\n", node->nameLens[i], str, (*(bool *) node->data) ? "true\0" : "false");
+                printf("%.*s=%s\n", node->nameLens[i], str, (*(bool *) node->data) ? "true\0" : "false");
                 break;
             case INT:
                 printf("%.*s=\"$%d\"\n", node->nameLens[i], str, *(int *) node->data);
@@ -178,7 +179,9 @@ void printKeyValuesWrapper(map_t * map, MapNode * node){
     }
 }
 
-Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, void * flagValue, DataType flagType, const char * defaultValues[], bool print){
+Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * defaultValues[], bool print){
+    // TODO is this guarenteed to always exist?
+    static bool flagTrue = true;
 
     defaultValues = (const char **) calloc((argc - 1), sizeof (const char *));
     memset(defaultValues, (long) NULL, argc);
@@ -231,8 +234,8 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                             //puts("didnt find");
                             return DidNotFind;       // didnt find it
                         }
-                        node->data = flagValue;
-                        node->type = flagType;
+                        node->data = &flagTrue;
+                        node->type = BOOL;
                         if(print){
                             printKeyValues(node);
                         }
@@ -243,11 +246,11 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                 const char * word = argv[i] + 2;
                 //printf("word:\t");
                 //puts(word);
-                bool notAlnum = false;
-                for(const char * c = word; *c && !notAlnum; c++){
-                    notAlnum = (!isalnum(*c) && (*c != '-') && (*c != '_'));
+                bool isAlnum = true;
+                for(const char * c = word; *c && isAlnum; c++){
+                    isAlnum = (isalnum(*c) || (*c == '-') || (*c == '_'));
                 }
-                if(notAlnum){
+                if(!isAlnum){
                     //puts("well its gotta be alnum");
                     return NotAlnum;   // error if f not alphanumeric
                 // TODO consider making a large string and then sprintf to it and print it at the end so it doesnt stop halfway through on an error
@@ -280,8 +283,8 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                         //puts("didnt find");
                         return DidNotFind;       // didnt find it
                     }
-                    node->data = flagValue;
-                    node->type = flagType;
+                    node->data = &flagTrue;
+                    node->type = BOOL;
                     if(print){
                         printKeyValues(node);
                     }
@@ -327,14 +330,13 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
 
 // define function to parse args for C lib (no printing)
 Errors parseArgs(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * defaultValues[]){
-    // TODO is this guarenteed to always exist?
-    static bool flagTrue = true;
-    return parseArgsBase(argc, argv, flagMap, paramMap, &flagTrue, BOOL, defaultValues, false);
+    return parseArgsBase(argc, argv, flagMap, paramMap, defaultValues, false);
 }
 // define function to parse args for sh (print)
 Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap){
     const char ** defaultValues = NULL;
-    Errors err = parseArgsBase(argc, argv, flagMap, paramMap, "1", STR, defaultValues, true);
+    // TODO should we just use bools for the print stuff?
+    Errors err = parseArgsBase(argc, argv, flagMap, paramMap, defaultValues, true);
     free(defaultValues);
     return err;
 }

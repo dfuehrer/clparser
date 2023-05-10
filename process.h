@@ -28,6 +28,6 @@ State setState(char * c);
 
 Errors parseArgs(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * defaultValues[]);
 Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap);
-Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, void * flagValue, DataType flagType, const char * defaultValues[], bool print);
+Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * defaultValues[], bool print);
 
 #endif

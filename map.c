@@ -164,6 +164,10 @@ void * getMapMemberData(const map_t * map, const char * key, int len){
 
 int  getMapMember_int (map_t * map, const char * key, int len){
     const void * datas = getMapMemberData(map, key, len);
+    if(datas == NULL){
+        fprintf(stderr, "Did not find datas for %.*s\n", len, key);
+        return -0;
+    }
     // TODO add int type specificness with the DataType enum (will need to not use getMapMemberData)
     int data = *((const int *)datas);
     return data;

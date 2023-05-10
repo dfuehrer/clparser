@@ -103,7 +103,8 @@ int main(int argc, const char * const argv[]){
     // ferr is a pointer to the char after the ; ending the flags or whatever error happened
     char * ce = cbuf + len;
     // find all flag params, make the default value "0" (false)
-    char * ferr = linkParams(cbuf, &flagMap, "flags:", "0", STR);
+    static bool flagFalse = false;
+    char * ferr = linkParams(cbuf, &flagMap, "flags:", &flagFalse, BOOL);
     //printMap(&flagMap);
 
     // TODO dont error yet, not finding is only bad if we find neither
