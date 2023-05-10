@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
+
 #define MAP_ARR_LEN UINT8_MAX
 
 #define MIN(x, y)   ((y < x) ? y : x)
@@ -15,6 +16,7 @@ enum DataType{
     CHAR,
     STR,
     BOOL,
+    STRING_VIEW,
 };
 
 typedef struct {
@@ -75,8 +77,8 @@ void printMap(map_t * map);
 
 
 typedef void (*mapIterFuncType)(map_t *, MapNode *);
-//void iterMap(map_t * map, void (*mapIterFunc)(map_t *, MapNode *));
 void iterMap(map_t * map, mapIterFuncType mapIterFunc);
+void iterMapSingle(map_t * map, mapIterFuncType mapIterFunc);
 
 
 

@@ -103,6 +103,7 @@ bool addMapKey(map_t * map, MapNode * node, StringView sv, int * ind_ptr){
     node->names[*ind_ptr] = sv.str;
     node->nameLens[*ind_ptr] = sv.len;
     ++node->namesLen;
+    printf("adding map key '%.*s'\n", sv.len, sv.str);
     // hash the str to get ind into array
     uint8_t hash = getHash(sv.str, sv.len);
     //printf("key: '%.*s', hash: %d\n", len, key, hash);
@@ -128,12 +129,14 @@ MapNode * getMapNode(const map_t * map, const char * key, int len){
     uint8_t hash = getHash(key, len);
     //printf("key: '%.*s', hash: %d\n", len, key, hash);
     for(MapNode * node = map->ptrArray[hash]; node != NULL; node = node->next){
+        //printf("first key %.*s\n", node->nameLens[0], node->names[0]);
         for(int i = 0; i < node->namesLen; ++i){
             if(node->nameLens[i] == len && !strncmp(key, node->names[i], MIN(len, node->nameLens[i]))){
                 return node;
             }
         }
     }
+    printf("didnt find node for key '%.*s'\n", len, key);
     return NULL;
 }
 
@@ -163,6 +166,9 @@ int  getMapMember_int (map_t * map, const char * key, int len){
     int data = *((const int *)datas);
     return data;
 }
+bool getMapMember_bool(map_t * map, const char * key, int len){
+    return getMapMember_int(map, key, len);
+}
 
 void printMap(map_t * map){
     for(int i = 0; i < MAP_ARR_LEN; ++i){
@@ -184,6 +190,29 @@ void iterMap(map_t * map, mapIterFuncType mapIterFunc){
             mapIterFunc(map, node);
         }
     }
+}
+void iterMapSingle(map_t * map, mapIterFuncType mapIterFunc){
+    const MapNode * * data_ptrs = calloc(map->len, sizeof (const MapNode *));
+    memset(data_ptrs, (long) NULL, map->len * sizeof (const MapNode *));
+    int ptrsLen = 0;
+    // TODO maybe have some way of indicating the first time or something (maybe just pass in i as well)
+    for(int i = 0; i < MAP_ARR_LEN; ++i){
+        for(MapNode * node = map->ptrArray[i]; node != NULL; node = node->next){
+            bool skip = false;
+            for(int j = 0; j < ptrsLen; ++j){
+                if(data_ptrs[j] == node){
+                    skip = true;
+                    break;
+                }
+            }
+            if(skip){
+                continue;
+            }
+            data_ptrs[ptrsLen++] = node;
+            mapIterFunc(map, node);
+        }
+    }
+    free(data_ptrs);
 }
 
 void freeMap(map_t * map){

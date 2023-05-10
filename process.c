@@ -36,16 +36,13 @@ char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue){
     State state = Space, nextState = Space;
     // loop throguh everything and make all the linked list stuffs
     //printf("state = %d, nextState = %d\n", state, nextState);
-    // k im reading this and holy cow "ce = (c = ce + 1) + 1" is awful
-    //for( ; state != Semicolon; ce = (c = ce + 1) + 1){
     llist_t * head = NULL;
-    for( ; state != Semicolon; c = ++ce){
-        char * start = c;
+    for( ; nextState != Semicolon; c = ++ce){
         char * defaultVal = defaultValue;
         llist_t * node = head;
         // loop through a param/flag list
-        int sum=0;
-        for( ; state != Space; c = ++ce){
+        int sum = 0;
+        for( ; ; c = ++ce){
             state = nextState;  // set state for next iteration
             // TODO check for whitespace etc or decide its not allowed and then error gracefully
             for( ; isalnum(*ce) || (*ce == '-') || (*ce == '_'); ++ce);
@@ -54,9 +51,8 @@ char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue){
             // if the next state is 0 then its an error and exit unless were on the last line
             if(nextState == Error && (state != Semicolon))  return NULL;
             // add a new node onto the linked list
-            //lpptr = addParam(lpptr, c, state);
-            //// TODO check for error from addParam output and then return with death if so
             // TODO check for issues in the format (like multiple =)
+            //printf("param: '%.*s', state = %d, nextState = %d\n", (int)(ce - c), c, state, nextState);
             if(state == Space || state == Comma){
                 ++sum;
                 llist_t * n = node;
@@ -64,7 +60,8 @@ char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue){
                 // we keep the list through all the params/flags and just override the data
                 // NOTE this only works if the addMapMembers_fromList function uses the length of the list directly
                 if(node == NULL){
-                    llist_t * node = (llist_t *) calloc(1, sizeof (llist_t));
+                    printf("allocating new node\n");
+                    node = (llist_t *) calloc(1, sizeof (llist_t));
                     node->next = head;
                     head = node;
                     n = node;
@@ -75,14 +72,18 @@ char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue){
                 n->sv.str = c;
                 n->sv.len = ce - c;
             }else if(state == Equals){
+                // TODO create a stringview for this
                 defaultVal = c;
+            }
+            if(nextState == Space || nextState == Semicolon){
+                break;
             }
         }
         addMapMembers_fromList(map, defaultVal, head, sum);
     }
     // cleanup the list
     for(llist_t * node = head ; node != NULL; ){
-        llist_t * n = node;
+        llist_t * n = node->next;
         free(node);
         node = n;
     }
@@ -140,7 +141,8 @@ void printKeyValues(const MapNode * node){
         }
         // print out the key='value' in POSIX sh synax
         // TODO make a way to select which syntax to print out in
-        printf("%.*s='%s'\n", node->nameLens[i], str, (char *) node->data);
+        //printf("%.*s='%s'\n", node->nameLens[i], str, (char *) node->data);
+        printf("%.*s=\"%s\"\n", node->nameLens[i], str, (char *) node->data);
         if(tmpstr != NULL){
             // if created tmp str to replace - then free it
             free(tmpstr);
@@ -181,9 +183,18 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                     }else if(((f[1]) == '\000') && ((i+1 < argc) && (argv[i+1][0] != '-'))){   // then this is a parameter
                         MapNode * node = getMapNode(paramMap, f, 1);
                         // TODO make the node data const..
-                        node->data = argv[i];
-                        if(node != NULL && print){
-                            printKeyValues(node);
+                        if(node != NULL){
+                            if(print){
+                                // get a string with the $i variable
+                                int numDigits = 1, tmp = 10;
+                                for( ; i < tmp; tmp *= 10, ++numDigits);
+                                // TODO free this data
+                                node->data = calloc(numDigits + 2, sizeof (char));
+                                snprintf(node->data, numDigits+2, "$%d", ++i);
+                                printKeyValues(node);
+                            }else{
+                                node->data = (void *) argv[++i];
+                            }
                             //printf("wtharg:\t");
                             //puts(argv[i]);
                             checkFlags = false;
@@ -193,12 +204,14 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                         }
                     }
                     if(checkFlags){                  // i think the only other option is its a flag
-                        MapNode * node = getMapNode(paramMap, f, 1);
-                        node->data = flagValue;
+                        printf("%.*s = %s\n", 1, f, (char *) flagValue);
+                        MapNode * node = getMapNode(flagMap, f, 1);
                         if(node == NULL){
                             //puts("didnt find");
                             return DidNotFind;       // didnt find it
-                        }else if(print){
+                        }
+                        node->data = flagValue;
+                        if(print){
                             printKeyValues(node);
                         }
                     }
@@ -219,7 +232,16 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                 }else if((i+1 < argc) && (argv[i+1][0] != '-')){   // then this is probably a parameter
                     MapNode * node = getMapNode(paramMap, word, strlen(word));
                     if(node != NULL){
-                        printKeyValues(node);
+                        if(print){
+                            // get a string with the $i variable
+                            int numDigits = 1, tmp = 10;
+                            for( ; i < tmp; tmp *= 10, ++numDigits);
+                            node->data = calloc(numDigits + 2, sizeof (char));
+                            snprintf(node->data, numDigits+2, "$%d", ++i);
+                            printKeyValues(node);
+                        }else{
+                            node->data = (void *) argv[++i];
+                        }
                         //printf("wtharg:\t");
                         //puts(argv[i]);
                         checkFlags = false;
@@ -229,12 +251,13 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                     }
                 }
                 if(checkFlags){                                          // i think the only other option is its a flag
-                    MapNode * node = getMapNode(paramMap, word, 1);
-                    node->data = flagValue;
+                    MapNode * node = getMapNode(flagMap, word, 1);
                     if(node == NULL){
                         //puts("didnt find");
                         return DidNotFind;       // didnt find it
-                    }else if(print){
+                    }
+                    node->data = flagValue;
+                    if(print){
                         printKeyValues(node);
                     }
                 }
@@ -244,26 +267,34 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
             //printf("default:\t");
             *thisDef = argv[i];
             //puts(*thisDef);
-            thisDef++;
+            ++thisDef;
         }
     }
 
     // now print defaults values out
-    iterMap(paramMap, printKeyValuesWrapper);
+    // TODO only print out values that werent already found in the args
+    if(print){
+        printf("gonna print map\n");
+        iterMapSingle(paramMap, printKeyValuesWrapper);
+    }
 
     // now print out the values without parameters (defaults)
     if(*defaultValues && print){
         // TODO I feel like defaults just isnt a good enough name here so figure something else out
         // TODO this method with eval doesnt seem to work since there are spaces and i havent figured out how to do it
         // TODO make defaults replace the args using the set - notation below
-        //printf("set - '%s'", *defaultValues);
-        printf("defaults='%s", *defaultValues);
-        for(thisDef = defaultValues + 1; *thisDef; ++thisDef){
+        printf("set -");
+        //printf("defaults='%s", *defaultValues);
+        int i = 1;
+        for(thisDef = defaultValues; *thisDef != NULL; ++thisDef){
             //printf(" '%s'", *thisDef);
-            printf(" %s", *thisDef);
+            // find index of this string for printing out var to use
+            for( ; i < argc && *thisDef != argv[i]; ++i);
+            printf(" \"$%d\"", i);
+            //printf(" %s", *thisDef);
         }
-        //printf("'\" )\n");
         printf("\n");
+        //printf("'\n");
     }
 
     return Success;
