@@ -17,7 +17,7 @@ void initMap(map_t * map){
 }
 
 // add arbitrary number of keys to map to a data ptr
-void addMapMembers(map_t * map, void * data, const char fmt[], ...){
+void addMapMembers(map_t * map, void * data, DataType type, const char fmt[], ...){
     va_list args;
     va_start(args, fmt);
     // key and len args for str (stringview same)
@@ -28,6 +28,7 @@ void addMapMembers(map_t * map, void * data, const char fmt[], ...){
     // create node for this data, set data to data, next to null
     MapNode * node = (MapNode *) calloc(1, sizeof (MapNode));
     node->data = data;
+    node->type = type;
     node->next = NULL;
     node->namesLen = 0;
     int fmtlen = strlen(fmt);
@@ -66,7 +67,7 @@ void addMapMembers(map_t * map, void * data, const char fmt[], ...){
 }
 
 // add arbitrary number of keys to map to a data ptr
-void addMapMembers_fromList(map_t * map, void * data, llist_t * head, int numKeys){
+void addMapMembers_fromList(map_t * map, void * data, DataType type, llist_t * head, int numKeys){
     // key and len args for str (stringview same)
     bool addedMember = false;
     int ind = 0;
@@ -74,6 +75,7 @@ void addMapMembers_fromList(map_t * map, void * data, llist_t * head, int numKey
     // create node for this data, set data to data, next to null
     MapNode * node = (MapNode *) calloc(1, sizeof (MapNode));
     node->data = data;
+    node->type = type;
     node->next = NULL;
     node->namesLen = 0;
     node->names = (const char * *) calloc(numKeys, sizeof (char *));
@@ -103,7 +105,7 @@ bool addMapKey(map_t * map, MapNode * node, StringView sv, int * ind_ptr){
     node->names[*ind_ptr] = sv.str;
     node->nameLens[*ind_ptr] = sv.len;
     ++node->namesLen;
-    printf("adding map key '%.*s'\n", sv.len, sv.str);
+    //printf("adding map key '%.*s'\n", sv.len, sv.str);
     // hash the str to get ind into array
     uint8_t hash = getHash(sv.str, sv.len);
     //printf("key: '%.*s', hash: %d\n", len, key, hash);
@@ -136,7 +138,7 @@ MapNode * getMapNode(const map_t * map, const char * key, int len){
             }
         }
     }
-    printf("didnt find node for key '%.*s'\n", len, key);
+    //fprintf(stderr, "didnt find node for key '%.*s'\n", len, key);
     return NULL;
 }
 
@@ -229,7 +231,6 @@ void freeMap(map_t * map){
             free(node);
         }
     }
-    printf("just freed the map nodes\n");
 }
 
 MapNode * popMapNode(map_t * map, const char * key, int len){

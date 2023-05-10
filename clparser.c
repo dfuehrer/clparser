@@ -97,38 +97,15 @@ int main(int argc, const char * const argv[]){
     /*         return 0; */
     /*     } */
     /* } */
-    //printf("%s\n", cbuf);
-    // puts(cbuf);
-    // printf("defaultValNULL = %x\n", defaultValNULL);
 
     // printf("printint things now\n");
     // let me think about what im doing here
     // ferr is a pointer to the char after the ; ending the flags or whatever error happened
     char * ce = cbuf + len;
-    //pllist * flagHead = NULL, * paramHead = NULL;
-    //char * ferr = linkParams(cbuf, &flagHead, "flags:");
     // find all flag params, make the default value "0" (false)
-    char * ferr = linkParams(cbuf, &flagMap, "flags:", "0");
-    // puts("now were gonna go through the string i guess");
-    // for(char * c = cbuf; c < ce; c++){
-    //     printf("%c", (*c == '\0')? '0' : *c);
-    // }
-    printMap(&flagMap);
+    char * ferr = linkParams(cbuf, &flagMap, "flags:", "0", STR);
+    //printMap(&flagMap);
 
-    // puts("going through the linked list now");
-    // char Ns[] = "NULL    ";
-    // char ttp[10];
-    // char * ns;
-    // for(pllist * lp = flagHead; lp != NULL; lp = lp->next){
-    //     if(!lp->nextSame)   ns = Ns;
-    //     else{
-    //         sprintf(ttp, "%x", lp->nextSame);
-    //         ns = ttp;
-    //     }
-    //     printf("str = %s:\tme=%x, headSame=%x, nextSame=%s, next=%x\n", lp->str, lp, lp->headSame, ns, lp->next);
-    // }
-    
-    // printf("ferr = %x, cbuf = %x, ce = %x\n", ferr, cbuf, ce);
     // TODO dont error yet, not finding is only bad if we find neither
     // if the ferr is before or after the buff then we know theres no flags
     int noflag = 0;
@@ -136,24 +113,6 @@ int main(int argc, const char * const argv[]){
         noflag = 1;
     }
     char * pcbuf;
-    //// go back to find the ; but also stop if left the string
-    //// honestly not sure this works so lets think about what im looking for here
-    //for(pcbuf = ce-1; (*pcbuf != ';') && (*pcbuf != '\0') && (pcbuf > cbuf); --pcbuf);
-
-    //// if found the ; then set buff to the ferr (after flags)
-    //// but what if the ferr was an error sounds like itd fail
-    //if(*pcbuf == ';'){
-    //    pcbuf = ferr;
-    //// seriously how could it ever be \0 i started at 1 before the end and worked back
-    //}else if(*pcbuf == '\0'){
-    //    pcbuf = cbuf;
-    //}else{
-    //    // TODO figure out what this error is
-    //    // TODO figure out the error numbers
-    //    fprintf(stderr, "ill figure this error out later");
-    //    return 1;
-    //}
-    //// puts(pcbuf);
 
     // find the last ; and see if ferr is there or not
     for(pcbuf = ce-1; (*pcbuf != ';') && (*pcbuf != '\0') && (pcbuf > cbuf); --pcbuf);
@@ -162,36 +121,19 @@ int main(int argc, const char * const argv[]){
 
     // puts("params now");
     //char * perr = linkParams(pcbuf, &paramHead, "parameters:");
-    char * perr = linkParams(pcbuf, &paramMap, "parameters:", NULL);
+    char * perr = linkParams(pcbuf, &paramMap, "parameters:", NULL, STR);
+    //printMap(&paramMap);
     // if didnt find params and no flag then return 1 this is bad
-    printMap(&paramMap);
     if((perr == NULL || perr <= cbuf || perr > ce) && noflag){
         // TODO figure out error
         fprintf(stderr, "ill figure this error out later");
         return 3;
     }
-    // puts("just finished with params");
-    // for(char * c = cbuf; c < ce; c++){
-    //     printf("%c", (*c == '\0')? '0' : *c);
-    // }
 
-    // puts("going through the linked list now again");
-    // printf("defaultValNULL:\t%x\n", defaultValNULL);
-    // for(pllist * lp = paramHead; lp != NULL; lp = lp->next){
-    //     if(!lp->nextSame)   ns = Ns;
-    //     else{
-    //         sprintf(ttp, "%x", lp->nextSame);
-    //         ns = ttp;
-    //     }
-    //     printf("str = %s:\tme=%x, headSame=%x, nextSame=%s, next=%x\n", lp->str, lp, lp->headSame, ns, lp->next);
-    // }
-
-    //Errors retVal = parseArgs(argc, argv, flagHead, paramHead);
     Errors retVal = parseArgsPrint(argc, argv, &flagMap, &paramMap);
     // TODO do some stuffs and figure out the errors
 
-    //clearMems(flagHead);
-    //clearMems(paramHead);
+    // TODO make a freeing function to free data
     freeMap(&flagMap);
     freeMap(&paramMap);
 

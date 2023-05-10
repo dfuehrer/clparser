@@ -11,13 +11,13 @@
 
 #define MIN(x, y)   ((y < x) ? y : x)
 
-enum DataType{
+typedef enum DataType{
     INT,
     CHAR,
     STR,
     BOOL,
     STRING_VIEW,
-};
+} DataType;
 
 typedef struct {
     char * str;
@@ -42,7 +42,7 @@ typedef struct MapNode_s{
     //const void * * data_ptr;
     void * data;
     // TODO add the type to this prolly
-    //DataType type;
+    DataType type;
     struct MapNode_s * next;
 } MapNode;
 
@@ -55,8 +55,8 @@ void initMap(map_t * map);
 // fmt is a "format string" that specifies what types the variadic keys are
 // %S is a StringView, %s is a char[] for the key, %d or %i is an int for the string length
 // length must follow a string, otherwise it will error
-void addMapMembers(map_t * map, void * data, const char fmt[], ...);
-void addMapMembers_fromList(map_t * map, void * data, llist_t * head, int numKeys);
+void addMapMembers(map_t * map, void * data, DataType type, const char fmt[], ...);
+void addMapMembers_fromList(map_t * map, void * data, DataType type, llist_t * head, int numKeys);
 //void addMapMember (map_t * map, const void * data_addr, StringView key);
 void addMapMember (map_t * map, const void * data_addr, const char * key, int len);
 

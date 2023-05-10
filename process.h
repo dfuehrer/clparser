@@ -3,16 +3,6 @@
 
 #include "map.h"
 
-typedef struct pllist_t{
-    char * str;
-    struct pllist_t * headSame;
-    struct pllist_t * nextSame;
-    struct pllist_t * next;
-    //struct pllist_t * prev;
-} pllist;
-extern const pllist defVal;
-// TODO figure out how to make this not error in gcc
-extern const pllist * const defaultValNULL;
 
 // TODO maybe instead of naming by what char indicates what the state is
 // label by what it actually indicates
@@ -30,20 +20,14 @@ typedef enum Errors_t {
     DidNotFind,
 } Errors;
 
-char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue);
+// TODO rename this function
+char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue, DataType defaultType);
 
 State setState(char * c);
-pllist ** addParam(pllist ** lp, char * c, State state);
 
-void clearMems(pllist * head);
 
-Errors parseArgsOld(int argc, char ** argv, pllist * flagHead, pllist * paramHead);
 Errors parseArgs(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * defaultValues[]);
 Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap);
-Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, void * flagValue, const char * defaultValues[], bool print);
-
-void printStuffs(char * str, pllist * head);
-pllist * mtchStr(char * str, pllist * head);
-pllist * mtchChr(char   c,   pllist * head);
+Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, void * flagValue, DataType flagType, const char * defaultValues[], bool print);
 
 #endif

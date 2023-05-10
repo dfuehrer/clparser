@@ -16,7 +16,7 @@
 // TODO actually rework the linked list stuff to use the maps
 // then parse the args by setting stuff in the maps and getting stuff from the maps
 // TODO also make a handy function to easily add values from args to the list? (for C interface that doesnt need to parse a string)
-char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue){
+char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue, DataType defaultType){
     // create all the links and variables
     // also figure out dynamically creating all these linked list node things
     char * typeptr = strstr(buf, argType);
@@ -38,7 +38,8 @@ char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue){
     //printf("state = %d, nextState = %d\n", state, nextState);
     llist_t * head = NULL;
     for( ; nextState != Semicolon; c = ++ce){
-        char * defaultVal = defaultValue;
+        void * defaultVal = defaultValue;
+        DataType type = defaultType;
         llist_t * node = head;
         // loop through a param/flag list
         int sum = 0;
@@ -60,7 +61,7 @@ char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue){
                 // we keep the list through all the params/flags and just override the data
                 // NOTE this only works if the addMapMembers_fromList function uses the length of the list directly
                 if(node == NULL){
-                    printf("allocating new node\n");
+                    //printf("allocating new node\n");
                     node = (llist_t *) calloc(1, sizeof (llist_t));
                     node->next = head;
                     head = node;
@@ -73,13 +74,17 @@ char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue){
                 n->sv.len = ce - c;
             }else if(state == Equals){
                 // TODO create a stringview for this
-                defaultVal = c;
+                StringView * sv = (StringView *) calloc(1, sizeof (StringView));
+                defaultVal = sv;
+                sv->str = c;
+                sv->len = (int) (ce - c);
+                type = STRING_VIEW;
             }
             if(nextState == Space || nextState == Semicolon){
                 break;
             }
         }
-        addMapMembers_fromList(map, defaultVal, head, sum);
+        addMapMembers_fromList(map, defaultVal, type, head, sum);
     }
     // cleanup the list
     for(llist_t * node = head ; node != NULL; ){
@@ -139,10 +144,26 @@ void printKeyValues(const MapNode * node){
             }
             str = tmpstr;
         }
-        // print out the key='value' in POSIX sh synax
+        // print out the key='value' or key="$i" in POSIX sh synax
         // TODO make a way to select which syntax to print out in
-        //printf("%.*s='%s'\n", node->nameLens[i], str, (char *) node->data);
-        printf("%.*s=\"%s\"\n", node->nameLens[i], str, (char *) node->data);
+        switch(node->type){
+            case STR:
+                printf("%.*s='%s'\n", node->nameLens[i], str, (char *) node->data);
+                break;
+            case STRING_VIEW:
+                printf("%.*s='%.*s'\n", node->nameLens[i], str, ((StringView *) node->data)->len, ((StringView *) node->data)->str);
+                break;
+            case BOOL:
+                printf("%.*s='%s'\n", node->nameLens[i], str, (*(bool *) node->data) ? "true\0" : "false");
+                break;
+            case INT:
+                printf("%.*s=\"$%d\"\n", node->nameLens[i], str, *(int *) node->data);
+                break;
+            default:
+                // TODO this isnt great
+                printf("%.*s=%p\n", node->nameLens[i], str, node->data);
+                break;
+        }
         if(tmpstr != NULL){
             // if created tmp str to replace - then free it
             free(tmpstr);
@@ -157,7 +178,7 @@ void printKeyValuesWrapper(map_t * map, MapNode * node){
     }
 }
 
-Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, void * flagValue, const char * defaultValues[], bool print){
+Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, void * flagValue, DataType flagType, const char * defaultValues[], bool print){
 
     defaultValues = (const char **) calloc((argc - 1), sizeof (const char *));
     memset(defaultValues, (long) NULL, argc);
@@ -184,16 +205,17 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                         MapNode * node = getMapNode(paramMap, f, 1);
                         // TODO make the node data const..
                         if(node != NULL){
+                            ++i;
                             if(print){
-                                // get a string with the $i variable
-                                int numDigits = 1, tmp = 10;
-                                for( ; i < tmp; tmp *= 10, ++numDigits);
-                                // TODO free this data
-                                node->data = calloc(numDigits + 2, sizeof (char));
-                                snprintf(node->data, numDigits+2, "$%d", ++i);
+                                // set node value to this argv ind to use for $i var
+                                node->data = &i;
+                                node->type = INT;
                                 printKeyValues(node);
+                                // reset data to NULL so i dont print it out as a default val
+                                node->data = NULL;
                             }else{
-                                node->data = (void *) argv[++i];
+                                node->data = (void *) argv[i];
+                                node->type = STR;
                             }
                             //printf("wtharg:\t");
                             //puts(argv[i]);
@@ -204,13 +226,13 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                         }
                     }
                     if(checkFlags){                  // i think the only other option is its a flag
-                        printf("%.*s = %s\n", 1, f, (char *) flagValue);
                         MapNode * node = getMapNode(flagMap, f, 1);
                         if(node == NULL){
                             //puts("didnt find");
                             return DidNotFind;       // didnt find it
                         }
                         node->data = flagValue;
+                        node->type = flagType;
                         if(print){
                             printKeyValues(node);
                         }
@@ -232,15 +254,17 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                 }else if((i+1 < argc) && (argv[i+1][0] != '-')){   // then this is probably a parameter
                     MapNode * node = getMapNode(paramMap, word, strlen(word));
                     if(node != NULL){
+                        ++i;
                         if(print){
-                            // get a string with the $i variable
-                            int numDigits = 1, tmp = 10;
-                            for( ; i < tmp; tmp *= 10, ++numDigits);
-                            node->data = calloc(numDigits + 2, sizeof (char));
-                            snprintf(node->data, numDigits+2, "$%d", ++i);
+                            // set node value to this argv ind to use for $i var
+                            node->data = &i;
+                            node->type = INT;
                             printKeyValues(node);
+                            // reset data to NULL so i dont print it out as a default val
+                            node->data = NULL;
                         }else{
-                            node->data = (void *) argv[++i];
+                            node->data = (void *) argv[i];
+                            node->type = STR;
                         }
                         //printf("wtharg:\t");
                         //puts(argv[i]);
@@ -257,6 +281,7 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                         return DidNotFind;       // didnt find it
                     }
                     node->data = flagValue;
+                    node->type = flagType;
                     if(print){
                         printKeyValues(node);
                     }
@@ -274,15 +299,14 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
     // now print defaults values out
     // TODO only print out values that werent already found in the args
     if(print){
-        printf("gonna print map\n");
         iterMapSingle(paramMap, printKeyValuesWrapper);
     }
 
     // now print out the values without parameters (defaults)
     if(*defaultValues && print){
         // TODO I feel like defaults just isnt a good enough name here so figure something else out
-        // TODO this method with eval doesnt seem to work since there are spaces and i havent figured out how to do it
-        // TODO make defaults replace the args using the set - notation below
+        // make defaults replace the args using the set - notation below
+        // - TODO should i keep defaults instead so you dont lose the original args?
         printf("set -");
         //printf("defaults='%s", *defaultValues);
         int i = 1;
@@ -305,12 +329,12 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
 Errors parseArgs(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * defaultValues[]){
     // TODO is this guarenteed to always exist?
     static bool flagTrue = true;
-    return parseArgsBase(argc, argv, flagMap, paramMap, &flagTrue, defaultValues, false);
+    return parseArgsBase(argc, argv, flagMap, paramMap, &flagTrue, BOOL, defaultValues, false);
 }
 // define function to parse args for sh (print)
 Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap){
     const char ** defaultValues = NULL;
-    Errors err = parseArgsBase(argc, argv, flagMap, paramMap, "1", defaultValues, true);
+    Errors err = parseArgsBase(argc, argv, flagMap, paramMap, "1", STR, defaultValues, true);
     free(defaultValues);
     return err;
 }
