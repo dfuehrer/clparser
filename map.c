@@ -16,6 +16,7 @@ void initMap(map_t * map){
     memset(map, 0, sizeof *map);
 }
 
+// TODO there is an issue where you could use the same name to add new values but it would jut add them over top and keep the old values which would be very confusin when popping and tuff
 // add arbitrary number of keys to map to a data ptr
 void addMapMembers(map_t * map, void * data, DataType type, const char fmt[], ...){
     va_list args;

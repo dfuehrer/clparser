@@ -14,6 +14,8 @@
 // i think i want separate lists for the parameters and words and have this do them separately
 // also this should probably replace spaces and commas with \0 so that it looks like a full string then it can be easily compared
 // TODO actually rework the linked list stuff to use the maps
+// - maybe iterate through all arg vals to find how many tben create fmt str
+//  - now that i think about it i dont have a way of putting together the variadic arvuments so i need another interface
 // then parse the args by setting stuff in the maps and getting stuff from the maps
 // TODO also make a handy function to easily add values from args to the list? (for C interface that doesnt need to parse a string)
 char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue, DataType defaultType){
