@@ -1,15 +1,12 @@
 include config.mk
 
-SRC = clparser.c process.c
-OBJ = ${SRC:.c=.o} map.o
 
-clparser : ${OBJ}
-	$(CC) -o $@ ${OBJ}
+CFLAGS += -Wall
 
-.c.o:
-	${CC} -c $<
+clparser : process.o
 
-${OBJ}: process.h
+process.o: process.h process.c map.o
+map.o: map.h map.c
 
 testmap: map.o
 

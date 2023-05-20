@@ -51,8 +51,8 @@ typedef struct map_s{
     int len;
 } map_t;
 
-const static bool flagFalse = false;
-const static bool flagTrue  = true;
+static const bool flagFalse = false;
+static const bool flagTrue  = true;
 
 void initMap(map_t * map);
 // fmt is a "format string" that specifies what types the variadic keys are
