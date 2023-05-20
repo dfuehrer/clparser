@@ -3,7 +3,7 @@ include config.mk
 
 CFLAGS += -Wall
 
-clparser : process.o
+clparser : process.o map.o
 
 process.o: process.h process.c map.o
 map.o: map.h map.c

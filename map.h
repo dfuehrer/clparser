@@ -75,7 +75,7 @@ void freeMap(map_t * map);
 MapNode * popMapNode(map_t * map, const char * key, int len);
 
 void printMap(map_t * map);
-
+int printNodeData(const MapNode * node, FILE * file);
 
 typedef int (*mapIterFuncType)(map_t *, MapNode *);
 void iterMap(map_t * map, mapIterFuncType mapIterFunc);

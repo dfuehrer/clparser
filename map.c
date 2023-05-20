@@ -170,7 +170,7 @@ void * getMapMemberData(const map_t * map, const char * key, int len){
 int  getMapMember_int (map_t * map, const char * key, int len){
     const void * datas = getMapMemberData(map, key, len);
     if(datas == NULL){
-        fprintf(stderr, "Did not find datas for %.*s\n", len, key);
+        //fprintf(stderr, "Did not find datas for %.*s\n", len, key);
         return -0;
     }
     // TODO add int type specificness with the DataType enum (will need to not use getMapMemberData)
@@ -181,7 +181,7 @@ int  getMapMember_int (map_t * map, const char * key, int len){
 bool getMapMember_bool(map_t * map, const char * key, int len){
     const void * datas = getMapMemberData(map, key, len);
     if(datas == NULL){
-        fprintf(stderr, "Did not find datas for %.*s\n", len, key);
+        //fprintf(stderr, "Did not find datas for %.*s\n", len, key);
         return -0;
     }
     // TODO add int type specificness with the DataType enum (will need to not use getMapMemberData)
@@ -189,31 +189,33 @@ bool getMapMember_bool(map_t * map, const char * key, int len){
     return data;
 }
 
+int printNodeData(const MapNode * node, FILE * file){
+    if(node->data == NULL){
+        return 0;
+    }
+    switch(node->type){
+        case STR:
+            return fprintf(file, "%s", (char *) node->data);
+        case STRING_VIEW:
+            return fprintf(file, "%.*s", ((StringView *) node->data)->len, ((StringView *) node->data)->str);
+        case BOOL:
+            return fprintf(file, "%s", (*(bool *) node->data) ? "true\0" : "false");
+        case INT:
+            return fprintf(file, "%d", *(int *) node->data);
+        case CHAR:
+            return fprintf(file, "%c", *(char *) node->data);
+    }
+    return 0;
+}
+
 void printMap(map_t * map){
     for(int i = 0; i < MAP_ARR_LEN; ++i){
         printf("map ind %d\n", i);
         for(MapNode * node = map->ptrArray[i]; node != NULL; node = node->next){
             printf("node %p\n", node);
-            printf("data %p", node->data);
-            switch(node->type){
-                // TODO maybe make sure the strings are ' escaped
-                case STR:
-                    printf(" %s\n", (char *) node->data);
-                    break;
-                case STRING_VIEW:
-                    printf(" %.*s\n", ((StringView *) node->data)->len, ((StringView *) node->data)->str);
-                    break;
-                case BOOL:
-                    //printf(" %s\n", (*(bool *) node->data) ? "true\0" : "false");
-                    printf(" %d\n", *(int *) node->data);
-                    break;
-                case INT:
-                    printf(" %d\n", *(int *) node->data);
-                    break;
-                default:
-                    printf("\n");
-                    break;
-            }
+            printf("data %p ", node->data);
+            printNodeData(node, stdout);
+            printf("\n");
             for(int j = 0; j < node->namesLen; ++j){
                 printf("node %d key %d %.*s\n", i, j, node->nameLens[j], node->names[j]);
             }

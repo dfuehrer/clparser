@@ -152,25 +152,23 @@ int printKeyValues(const MapNode * node){
         }
         // print out the key='value' or key="$i" in POSIX sh synax
         // TODO make a way to select which syntax to print out in
+        char * pre, * post;
         switch(node->type){
             // TODO maybe make sure the strings are ' escaped
             case STR:
-                len += printf("%.*s='%s'\n", node->nameLens[i], str, (char *) node->data);
-                break;
             case STRING_VIEW:
-                len += printf("%.*s='%.*s'\n", node->nameLens[i], str, ((StringView *) node->data)->len, ((StringView *) node->data)->str);
-                break;
             case BOOL:
-                len += printf("%.*s=%s\n", node->nameLens[i], str, (*(bool *) node->data) ? "true\0" : "false");
+            case CHAR:
+                pre = post = "'";
                 break;
             case INT:
-                len += printf("%.*s=\"$%d\"\n", node->nameLens[i], str, *(int *) node->data);
-                break;
-            default:
-                // TODO this isnt good, how would this mean anything when printed out for the shell
-                len += printf("%.*s=%p\n", node->nameLens[i], str, node->data);
+                pre = "\"$";
+                post = "\"";
                 break;
         }
+        printf("%.*s=%s", node->nameLens[i], str, pre);
+        printNodeData(node, stdout);
+        printf("%s\n", post);
         // TODO maybe handle this str so we dont free it multiple times in a loop
         if(tmpstr != NULL){
             // if created tmp str to replace - then free it
@@ -184,6 +182,16 @@ int printKeyValues(const MapNode * node){
 int printKeyValuesWrapper(map_t * map, MapNode * node){
     if(node->data != NULL){
         return printKeyValues(node);
+    //}else if(node->type == INT){
+    //    free(node->data);
+    //    node->data = NULL;
+    }
+    return 0;
+}
+int freeNodeInts(map_t * map, MapNode * node){
+    if(node->data != NULL && node->type == INT){
+        free(node->data);
+        node->data = NULL;
     }
     return 0;
 }
@@ -219,13 +227,17 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                             ++i;
                             if(print){
                                 // set node value to this argv ind to use for $i var
-                                node->data = &i;
+                                int * varnum = (int *) calloc(1, sizeof (int));
+                                *varnum = i;
+                                node->data = varnum;
                                 node->type = INT;
-                                printKeyValues(node);
-                                // reset data to NULL so i dont print it out as a default val
-                                node->data = NULL;
+                                //printKeyValues(node);
+                                //// reset data to NULL so i dont print it out as a default val
+                                //node->data = NULL;
                             }else{
-                                node->data = (void *) argv[i];
+                                int * num = (int *) calloc(1, sizeof (int));
+                                *num = strtol(argv[i], NULL, 0);
+                                node->data = num;
                                 node->type = STR;
                             }
                             //printf("wtharg:\t");
@@ -275,13 +287,17 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                         ++i;
                         if(print){
                             // set node value to this argv ind to use for $i var
-                            node->data = &i;
+                            int * varnum = (int *) calloc(1, sizeof (int));
+                            *varnum = i;
+                            node->data = varnum;
                             node->type = INT;
-                            printKeyValues(node);
+                            //printKeyValues(node);
                             // reset data to NULL so i dont print it out as a default val
                             node->data = NULL;
                         }else{
-                            node->data = (void *) argv[i];
+                            int * num = (int *) calloc(1, sizeof (int));
+                            *num = strtol(argv[i], NULL, 0);
+                            node->data = num;
                             node->type = STR;
                         }
                         //printf("wtharg:\t");
@@ -318,8 +334,9 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
     // TODO only print out values that werent already found in the args
     if(print){
         // TODO probably just print all flags
-        iterMapSingle(flagMap, printKeyValuesWrapper);
+        iterMapSingle(flagMap,  printKeyValuesWrapper);
         iterMapSingle(paramMap, printKeyValuesWrapper);
+        iterMapSingle(paramMap, freeNodeInts);
     }
 
     // now print out the values without parameters (defaults)
@@ -378,8 +395,7 @@ int printFlagsWrapper(map_t * map, MapNode * node){
 int printParams(MapNode * node, FILE * file, bool optional){
     int i;
     int lastWordInd = 0;
-    int len;
-    len = fprintf(file, " ");
+    int len = fprintf(file, " ");
     if(optional){
         len = fprintf(file, "[ ");
     }
@@ -392,8 +408,9 @@ int printParams(MapNode * node, FILE * file, bool optional){
         }
     }
     len += fprintf(file, "%.*s ", node->nameLens[lastWordInd], node->names[lastWordInd]);
-    if(node->type == STRING_VIEW && node->data != NULL){
-        len += fprintf(file, "= %.*s ", ((StringView *) node->data)->len, ((StringView *) node->data)->str);
+    if(node->data != NULL){
+        len += fprintf(file, "= ");
+        len += printNodeData(node, file);
     }
     if(optional){
         len += fprintf(file, "]");
@@ -435,9 +452,9 @@ void printHelp(map_t * flagMap, map_t * paramMap, char fmt[], ...){
             printedLen = printFlags(node, stderr);
         }
         helpText = va_arg(args, char *);
-        fprintf(stderr, "%-*s%s\n", ARG_SPACE - printedLen, "", helpText);
+        fprintf(stderr, "%-*s %s\n", ARG_SPACE - printedLen - 1, "", helpText);
         if(commaPos[0] == '\000'){
-            break;;
+            break;
         }
     }
     va_end(args);
