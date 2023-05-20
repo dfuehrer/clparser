@@ -405,7 +405,7 @@ int printParams(MapNode * node, FILE * file, bool optional){
     int lastWordInd = 0;
     int len = fprintf(file, " ");
     if(optional){
-        len = fprintf(file, "[ ");
+        len += fprintf(file, "[ ");
     }
     for(i = 0; i < node->namesLen; ++i){
         if(node->nameLens[i] == 1){
@@ -415,14 +415,13 @@ int printParams(MapNode * node, FILE * file, bool optional){
             lastWordInd = i;
         }
     }
-    len += fprintf(file, "%.*s ", node->nameLens[lastWordInd], node->names[lastWordInd]);
+    len += fprintf(file, "%.*s", node->nameLens[lastWordInd], node->names[lastWordInd]);
     if(node->data != NULL){
-        len += fprintf(file, "= ");
+        len += fprintf(file, " = ");
         len += printNodeData(node, file);
-        len += fprintf(file, " ");
     }
     if(optional){
-        len += fprintf(file, "]");
+        len += fprintf(file, " ]");
     }
     return len;
 }
