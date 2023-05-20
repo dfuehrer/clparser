@@ -103,9 +103,10 @@ int main(int argc, const char * const argv[]){
     // ferr is a pointer to the char after the ; ending the flags or whatever error happened
     char * ce = cbuf + len;
     // find all flag params, make the default value "0" (false)
-    static bool flagFalse = false;
-    char * ferr = linkParams(cbuf, &flagMap, "flags:", &flagFalse, BOOL);
+    char * ferr = linkParams(cbuf, &flagMap, "flags:", (void *)&flagFalse, BOOL);
     //printMap(&flagMap);
+
+    addMapMembers(&flagMap, (void *)&flagFalse, BOOL, "sdsd", "help", 4, "h", 1);
 
     // TODO dont error yet, not finding is only bad if we find neither
     // if the ferr is before or after the buff then we know theres no flags
@@ -133,6 +134,15 @@ int main(int argc, const char * const argv[]){
 
     Errors retVal = parseArgsPrint(argc, argv, &flagMap, &paramMap);
     // TODO do some stuffs and figure out the errors
+
+    bool help = getMapMember_bool(&flagMap, "help", 4);
+    // TODO figure out whether we should do this
+    if(help){
+        printUsage(&flagMap, &paramMap, argv[0]);
+        printHelp(&flagMap, &paramMap, "help,flag,qwerty", "print this help message", "i dunno, doesnt matter", "other message");
+        //printf("exit");
+        return 1;
+    }
 
     // TODO make a freeing function to free data
     freeMap(&flagMap);

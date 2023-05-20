@@ -57,6 +57,7 @@ void addMapMembers(map_t * map, void * data, DataType type, const char fmt[], ..
                 return error(5, 0, "map member fmt str '%s' invalid: '%c' unrecognized should be s, i, d, or S", fmt, *fp);
         }
 
+        // TODO allow strings without len
         addedMember = addMapKey(map, node, sv, &ind);
         sv = (StringView){.str = NULL, .len = 0};
     }
@@ -129,6 +130,9 @@ bool addMapKey(map_t * map, MapNode * node, StringView sv, int * ind_ptr){
 }
 
 MapNode * getMapNode(const map_t * map, const char * key, int len){
+    if(map == NULL){
+        return NULL;
+    }
     uint8_t hash = getHash(key, len);
     //printf("key: '%.*s', hash: %d\n", len, key, hash);
     for(MapNode * node = map->ptrArray[hash]; node != NULL; node = node->next){
@@ -173,8 +177,16 @@ int  getMapMember_int (map_t * map, const char * key, int len){
     int data = *((const int *)datas);
     return data;
 }
+// NOTE cant just use the int version because this doesnt store the size of the data so ints are too large
 bool getMapMember_bool(map_t * map, const char * key, int len){
-    return getMapMember_int(map, key, len);
+    const void * datas = getMapMemberData(map, key, len);
+    if(datas == NULL){
+        fprintf(stderr, "Did not find datas for %.*s\n", len, key);
+        return -0;
+    }
+    // TODO add int type specificness with the DataType enum (will need to not use getMapMemberData)
+    bool data = *((const bool *)datas);
+    return data;
 }
 
 void printMap(map_t * map){
@@ -182,7 +194,26 @@ void printMap(map_t * map){
         printf("map ind %d\n", i);
         for(MapNode * node = map->ptrArray[i]; node != NULL; node = node->next){
             printf("node %p\n", node);
-            printf("data %p\n", node->data);
+            printf("data %p", node->data);
+            switch(node->type){
+                // TODO maybe make sure the strings are ' escaped
+                case STR:
+                    printf(" %s\n", (char *) node->data);
+                    break;
+                case STRING_VIEW:
+                    printf(" %.*s\n", ((StringView *) node->data)->len, ((StringView *) node->data)->str);
+                    break;
+                case BOOL:
+                    //printf(" %s\n", (*(bool *) node->data) ? "true\0" : "false");
+                    printf(" %d\n", *(int *) node->data);
+                    break;
+                case INT:
+                    printf(" %d\n", *(int *) node->data);
+                    break;
+                default:
+                    printf("\n");
+                    break;
+            }
             for(int j = 0; j < node->namesLen; ++j){
                 printf("node %d key %d %.*s\n", i, j, node->nameLens[j], node->names[j]);
             }
@@ -222,13 +253,31 @@ void iterMapSingle(map_t * map, mapIterFuncType mapIterFunc){
     free(data_ptrs);
 }
 
+// internal version of pop node that can check my exact names keys array thing
+MapNode * popMapNode_internal(map_t * map, const char * key, int len, const char ** names){
+    uint8_t hash = getHash(key, len);
+    //printf("key: '%.*s', hash: %d\n", len, key, hash);
+    MapNode * node = NULL;
+    MapNode * * prev_ptr = &map->ptrArray[hash];
+    for(node = map->ptrArray[hash]; node != NULL; prev_ptr = &(*prev_ptr)->next, node = node->next){
+        for(int i = 0; i < node->namesLen; ++i){
+            if(node->names == names){
+                (*prev_ptr) = node->next;
+                return node;
+            }
+        }
+    }
+    return NULL;
+}
+
 void freeMap(map_t * map){
     for(int i = 0; i < MAP_ARR_LEN; ++i){
         for(MapNode * node = map->ptrArray[i]; node != NULL; node = map->ptrArray[i]){
             // pop off all the nodes so we dont try to free them
             for(int j = 0; j < node->namesLen; ++j){
                 //printf("gonna pop node %d %.*s\n", i, node->nameLens[j], node->names[j]);
-                popMapNode(map, node->names[j], node->nameLens[j]);
+                //popMapNode(map, node->names[j], node->nameLens[j]);
+                popMapNode_internal(map, node->names[j], node->nameLens[j], node->names);
             }
             // free the node datas
             free(node->names);

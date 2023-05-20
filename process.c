@@ -2,8 +2,11 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <error.h>
+#include <stdarg.h>
 #include "process.h"
 
+#define ARG_SPACE   (50)
 
 // so the idea of this is that it will go through buff and add pointers to a linked list to dostuffs
 // so im gonna need to make linked list functions to do all the linked list things like swapping pointers and stuff
@@ -132,7 +135,8 @@ State setState(char * c){
 // print out values of a key in the map in POSIX sh syntax
 //void printKeyValues(const map_t * map, const char * key, int len){
 //    MapNode * node = getMapNode(map, key, len);
-void printKeyValues(const MapNode * node){
+int printKeyValues(const MapNode * node){
+    int len = 0;
     for(int i = 0; i < node->namesLen; ++i){
         const char * str = node->names[i];
         char * tmpstr = NULL;
@@ -151,47 +155,49 @@ void printKeyValues(const MapNode * node){
         switch(node->type){
             // TODO maybe make sure the strings are ' escaped
             case STR:
-                printf("%.*s='%s'\n", node->nameLens[i], str, (char *) node->data);
+                len += printf("%.*s='%s'\n", node->nameLens[i], str, (char *) node->data);
                 break;
             case STRING_VIEW:
-                printf("%.*s='%.*s'\n", node->nameLens[i], str, ((StringView *) node->data)->len, ((StringView *) node->data)->str);
+                len += printf("%.*s='%.*s'\n", node->nameLens[i], str, ((StringView *) node->data)->len, ((StringView *) node->data)->str);
                 break;
             case BOOL:
-                printf("%.*s=%s\n", node->nameLens[i], str, (*(bool *) node->data) ? "true\0" : "false");
+                len += printf("%.*s=%s\n", node->nameLens[i], str, (*(bool *) node->data) ? "true\0" : "false");
                 break;
             case INT:
-                printf("%.*s=\"$%d\"\n", node->nameLens[i], str, *(int *) node->data);
+                len += printf("%.*s=\"$%d\"\n", node->nameLens[i], str, *(int *) node->data);
                 break;
             default:
-                // TODO this isnt great
-                printf("%.*s=%p\n", node->nameLens[i], str, node->data);
+                // TODO this isnt good, how would this mean anything when printed out for the shell
+                len += printf("%.*s=%p\n", node->nameLens[i], str, node->data);
                 break;
         }
+        // TODO maybe handle this str so we dont free it multiple times in a loop
         if(tmpstr != NULL){
             // if created tmp str to replace - then free it
             free(tmpstr);
         }
     }
+    return len;
 }
 
 
-void printKeyValuesWrapper(map_t * map, MapNode * node){
+int printKeyValuesWrapper(map_t * map, MapNode * node){
     if(node->data != NULL){
         return printKeyValues(node);
     }
+    return 0;
 }
 
-Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * defaultValues[], bool print){
+Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * defaultValues[], bool print){
     // TODO is this guarenteed to always exist?
-    static bool flagTrue = true;
 
-    defaultValues = (const char **) calloc((argc - 1), sizeof (const char *));
-    memset(defaultValues, (long) NULL, argc);
-    const char ** thisDef = defaultValues;
+    *defaultValues = (const char **) calloc((argc), sizeof (const char *));
+    memset(*defaultValues, (long) NULL, argc);
+    const char ** thisDef = *defaultValues;
 
     bool checkFlags;
 
-    for(int i = 1; i < argc; i++){
+    for(int i = 1; i < argc; ++i){
         checkFlags = true;
         // if arg starts with - then its a single letter / word param
         if(argv[i][0] == '-'){
@@ -236,14 +242,21 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                             //puts("didnt find");
                             return DidNotFind;       // didnt find it
                         }
-                        node->data = &flagTrue;
+                        node->data = (void *)&flagTrue;
                         node->type = BOOL;
-                        if(print){
-                            printKeyValues(node);
-                        }
+                        //if(print){
+                        //    printKeyValues(node);
+                        //}
                     }
                 }
             }else{
+                // if this arg is just '--', then all the rest of the args are just default vals, dont parse
+                if(argv[i][2] == '\000'){
+                    for(++i; i < argc; ++i, ++thisDef){
+                        *thisDef = argv[i];
+                    }
+                    break;
+                }
                 // this is a word thign
                 const char * word = argv[i] + 2;
                 //printf("word:\t");
@@ -285,11 +298,11 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                         //puts("didnt find");
                         return DidNotFind;       // didnt find it
                     }
-                    node->data = &flagTrue;
+                    node->data = (void *)&flagTrue;
                     node->type = BOOL;
-                    if(print){
-                        printKeyValues(node);
-                    }
+                    //if(print){
+                    //    printKeyValues(node);
+                    //}
                 }
             }
         }else{
@@ -304,18 +317,20 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
     // now print defaults values out
     // TODO only print out values that werent already found in the args
     if(print){
+        // TODO probably just print all flags
+        iterMapSingle(flagMap, printKeyValuesWrapper);
         iterMapSingle(paramMap, printKeyValuesWrapper);
     }
 
     // now print out the values without parameters (defaults)
-    if(*defaultValues && print){
+    if(*defaultValues[0] != NULL && print){
         // TODO I feel like defaults just isnt a good enough name here so figure something else out
         // make defaults replace the args using the set - notation below
         // - TODO should i keep defaults instead so you dont lose the original args?
         printf("set -");
-        //printf("defaults='%s", *defaultValues);
+        //printf("defaults='%s", *defaultValues[0]);
         int i = 1;
-        for(thisDef = defaultValues; *thisDef != NULL; ++thisDef){
+        for(thisDef = *defaultValues; *thisDef != NULL; ++thisDef){
             //printf(" '%s'", *thisDef);
             // find index of this string for printing out var to use
             for( ; i < argc && *thisDef != argv[i]; ++i);
@@ -331,14 +346,99 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
 
 
 // define function to parse args for C lib (no printing)
-Errors parseArgs(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * defaultValues[]){
+Errors parseArgs(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * defaultValues[]){
     return parseArgsBase(argc, argv, flagMap, paramMap, defaultValues, false);
 }
 // define function to parse args for sh (print)
 Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap){
     const char ** defaultValues = NULL;
     // TODO should we just use bools for the print stuff?
-    Errors err = parseArgsBase(argc, argv, flagMap, paramMap, defaultValues, true);
+    Errors err = parseArgsBase(argc, argv, flagMap, paramMap, &defaultValues, true);
     free(defaultValues);
     return err;
+}
+
+
+int printFlags(MapNode * node, FILE * file){
+    int len = fprintf(file, " [ ");
+    for(int i = 0; i < node->namesLen; ++i){
+        if(node->nameLens[i] == 1){
+            len += fprintf(file, "-%c ", node->names[i][0]);
+        }else{
+            len += fprintf(file, "--%.*s ", node->nameLens[i], node->names[i]);
+        }
+    }
+    len += fprintf(file, "]");
+    return len;
+}
+int printFlagsWrapper(map_t * map, MapNode * node){
+    return printFlags(node, stderr);
+}
+
+int printParams(MapNode * node, FILE * file, bool optional){
+    int i;
+    int lastWordInd = 0;
+    int len;
+    len = fprintf(file, " ");
+    if(optional){
+        len = fprintf(file, "[ ");
+    }
+    for(i = 0; i < node->namesLen; ++i){
+        if(node->nameLens[i] == 1){
+            len += fprintf(file, "-%c ", node->names[i][0]);
+        }else{
+            len += fprintf(file, "--%.*s ", node->nameLens[i], node->names[i]);
+            lastWordInd = i;
+        }
+    }
+    len += fprintf(file, "%.*s ", node->nameLens[lastWordInd], node->names[lastWordInd]);
+    if(node->type == STRING_VIEW && node->data != NULL){
+        len += fprintf(file, "= %.*s ", ((StringView *) node->data)->len, ((StringView *) node->data)->str);
+    }
+    if(optional){
+        len += fprintf(file, "]");
+    }
+    return len;
+}
+int printParamsWrapper(map_t * map, MapNode * node){
+    return printParams(node, stderr, true);
+}
+
+void printUsage(map_t * flagMap, map_t * paramMap, const char * progname){
+    fprintf(stderr, "Usage:\t%s", progname);
+    iterMapSingle(flagMap, printFlagsWrapper);
+    iterMapSingle(paramMap, printParamsWrapper);
+    fprintf(stderr, "\n");
+}
+
+void printHelp(map_t * flagMap, map_t * paramMap, char fmt[], ...){
+    char * key = fmt;
+    char * commaPos;
+    char * helpText;
+    MapNode * node;
+    int printedLen;
+    va_list args;
+    va_start(args, fmt);
+    for(commaPos = strchr(key, ','); ; key = commaPos + 1, commaPos = strchr(key, ',')){
+        if(commaPos == NULL){
+            commaPos = strchr(key, '\000');
+        }
+        node = getMapNode(paramMap, key, commaPos - key);
+        if(node != NULL){
+            // TODO add a way figuring out if someting is optional
+            printedLen = printParams(node, stderr, true);
+        }else{
+            node = getMapNode(flagMap, key, commaPos - key);
+            if(node == NULL){
+                error(7, 0, "key '%.*s' does not exist in map", (int) (commaPos - key), key);
+            }
+            printedLen = printFlags(node, stderr);
+        }
+        helpText = va_arg(args, char *);
+        fprintf(stderr, "%-*s%s\n", ARG_SPACE - printedLen, "", helpText);
+        if(commaPos[0] == '\000'){
+            break;;
+        }
+    }
+    va_end(args);
 }

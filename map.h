@@ -51,14 +51,15 @@ typedef struct map_s{
     int len;
 } map_t;
 
+const static bool flagFalse = false;
+const static bool flagTrue  = true;
+
 void initMap(map_t * map);
 // fmt is a "format string" that specifies what types the variadic keys are
 // %S is a StringView, %s is a char[] for the key, %d or %i is an int for the string length
 // length must follow a string, otherwise it will error
 void addMapMembers(map_t * map, void * data, DataType type, const char fmt[], ...);
 void addMapMembers_fromList(map_t * map, void * data, DataType type, llist_t * head, int numKeys);
-//void addMapMember (map_t * map, const void * data_addr, StringView key);
-void addMapMember (map_t * map, const void * data_addr, const char * key, int len);
 
 const void * setMapMemberData(map_t * map, void * data_addr, const char * key, int len);
 
@@ -76,7 +77,7 @@ MapNode * popMapNode(map_t * map, const char * key, int len);
 void printMap(map_t * map);
 
 
-typedef void (*mapIterFuncType)(map_t *, MapNode *);
+typedef int (*mapIterFuncType)(map_t *, MapNode *);
 void iterMap(map_t * map, mapIterFuncType mapIterFunc);
 void iterMapSingle(map_t * map, mapIterFuncType mapIterFunc);
 

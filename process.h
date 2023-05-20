@@ -26,8 +26,11 @@ char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue, 
 State setState(char * c);
 
 
-Errors parseArgs(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * defaultValues[]);
+Errors parseArgs(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * defaultValues[]);
 Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap);
-Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * defaultValues[], bool print);
+Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * defaultValues[], bool print);
+
+void printUsage(map_t * flagMap, map_t * paramMap, const char * progname);
+void printHelp(map_t * flagMap, map_t * paramMap, char fmt[], ...);
 
 #endif
