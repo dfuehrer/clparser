@@ -235,10 +235,14 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                                 //// reset data to NULL so i dont print it out as a default val
                                 //node->data = NULL;
                             }else{
-                                int * num = (int *) calloc(1, sizeof (int));
-                                *num = strtol(argv[i], NULL, 0);
-                                node->data = num;
-                                node->type = STR;
+                                if(node->type == INT){
+                                    int * num = (int *) calloc(1, sizeof (int));
+                                    *num = strtol(argv[i], NULL, 0);
+                                    node->data = num;
+                                }else{
+                                    node->data = (void *)argv[i];
+                                    node->type = STR;
+                                }
                             }
                             //printf("wtharg:\t");
                             //puts(argv[i]);
@@ -295,10 +299,14 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                             // reset data to NULL so i dont print it out as a default val
                             node->data = NULL;
                         }else{
-                            int * num = (int *) calloc(1, sizeof (int));
-                            *num = strtol(argv[i], NULL, 0);
-                            node->data = num;
-                            node->type = STR;
+                            if(node->type == INT){
+                                int * num = (int *) calloc(1, sizeof (int));
+                                *num = strtol(argv[i], NULL, 0);
+                                node->data = num;
+                            }else{
+                                node->data = (void *)argv[i];
+                                node->type = STR;
+                            }
                         }
                         //printf("wtharg:\t");
                         //puts(argv[i]);
@@ -411,6 +419,7 @@ int printParams(MapNode * node, FILE * file, bool optional){
     if(node->data != NULL){
         len += fprintf(file, "= ");
         len += printNodeData(node, file);
+        len += fprintf(file, " ");
     }
     if(optional){
         len += fprintf(file, "]");
