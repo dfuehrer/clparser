@@ -13,19 +13,16 @@
 //      i can do this by just setting both at the same time, set the other to '' or something (can do something like asdf=)
 //  my biggest issue with this right now is that i dont really know how i want to do it in the spec (my current thought is something like:
 //      flags: a,asdf b,qwer=-a;
-//      to make a opposite of b
-// TODO it seems to die if no flags in spec
+//      to make a opposite of b)
 // TODO it seems to die if only give defualts
-// TODO give some sort of option to have the defaults split by something so that i can preserve whitespace
 // TODO probably print out helpful errors when it dies
 //  only if it actually prevents execution of the script
 // TODO prolly add in lists by separating by commas or something
 //  not exactly sure if this is helpful or anything but
 //  also lists arent really a thing in posix shell so i dont know what id expand them to
 //  using argparse in python lists are done with separate arguments so that might be a better way if i actually had a use for lists
-// TODO use set in bash to turn defaults into $@ somehow
-//  i didn't know this but its just that easy to set $@ and if you use quotes it sets the params with the magic whitespace properties
-//  this could be an option if i ever get the options stuffs working in clparser
+// TODO maybe make option to not override $@
+// TODO allow setting values like --key=value and maybe even -kvalue (but probably not, thats really inconsistent especially since i allow flags and params to have the same letters)
 
 
 
@@ -61,8 +58,7 @@
 // 2 flags or parameter not defined
 // 3 bad definitions
 // TODO im considering changing the structure to make it so command line args are possible for this program
-// if it works like echo $@ | parser "deffs..." --arg-for-parser then that would work
-// otherwise i need to figure out a way to signal that the arguemtn is just for this parser and not what its working with
+// i need to figure out a way to signal that the arguemnt is just for this parser and not what its working with
 //  that could work like echo "deffs..." | parser --args-for-parser -- $@
 //  in this case the arguments after -- are what needs to be parsed which makes the -- necessary (could make it something like -p or --parse instead of just --)
 //  (could have it assume to parse everything if there is no -- but that could be confusing if someone passes in a -- that wasnt exected and things are parsed wrong or it errors cause thats how that works)
@@ -132,14 +128,16 @@ int main(int argc, const char * const argv[]){
     // TODO do some stuffs and figure out the errors
 
     //bool help = getMapMember_bool(&flagMap, "help", 4);
-    //// TODO figure out whether we should do this
-    //if(help){
-    //    printUsage(&flagMap, &paramMap, argv[0]);
-    //    //printHelp(&flagMap, &paramMap, "help,flag,qwerty,asdf,zzz", "print this help message", "i dunno, doesnt matter", "other message", "something whatever", "i dunno, something optional");
-    //    printHelp(&flagMap, &paramMap, "help", "print this help message");
-    //    //printf("exit");
-    //    return 1;
-    //}
+    MapNode * helpNode = getMapNode(&flagMap, "help", 4);
+    // TODO figure out whether we should do this
+    if(helpNode != NULL && *(const bool *)helpNode->data.ptr){
+        printUsage(&flagMap, &paramMap, argv[0]);
+        //printHelp(&flagMap, &paramMap, "help,flag,qwerty,asdf,zzz", "print this help message", "i dunno, doesnt matter", "other message", "something whatever", "i dunno, something optional");
+        // TODO figure out how to get user defined help here
+        printHelp(&flagMap, &paramMap, "help", "print this help message");
+        //printf("exit");
+        return 1;
+    }
 
     // TODO make a freeing function to free data
     freeMap(&flagMap);

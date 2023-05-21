@@ -31,19 +31,24 @@ typedef struct llist_s {
 
 // TODO define errors in an enum somewhere
 
+struct MapNode_s;
 
+
+// struct that holds other info helpful for this purpose like default value, type, other attrs like required, negation of other nodes, etc
+typedef struct ArgData_s {
+    const void * ptr;
+    DataType type;
+    bool required;
+    struct MapNode_s * negation;
+    struct ArgData_s * defaultData;
+} ArgData;
 
 typedef struct MapNode_s{
     const char * * names;
     int * nameLens;
     int namesLen;
-    // TODO figure out what this should actually hold and put that instead
-    //  alternatively let it hold typed data in the void pointer and then store a type to know how to access it (use an enum or something for int, str, bool, etc)
-    //const void * * data_ptr;
-    // TODO make the data a struct that holds other info helpful for this purpose like default value, type, other attrs like required, etc
-    void * data;
-    // TODO add the type to this prolly
-    DataType type;
+    // TODO maybe go back to this being a void pointer and have this stuff be on the process.h specificity
+    ArgData data;
     struct MapNode_s * next;
 } MapNode;
 
@@ -59,14 +64,15 @@ void initMap(map_t * map);
 // fmt is a "format string" that specifies what types the variadic keys are
 // %S is a StringView, %s is a char[] for the key, %d or %i is an int for the string length
 // length must follow a string, otherwise it will error
-void addMapMembers(map_t * map, void * data, DataType type, const char fmt[], ...);
-void addMapMembers_fromList(map_t * map, void * data, DataType type, llist_t * head, int numKeys);
+MapNode * addMapMembers(map_t * map, void * data, DataType type, const char fmt[], ...);
+MapNode * addMapMembers_fromList(map_t * map, void * data, DataType type, llist_t * head, int numKeys);
 
 // TODO add check for if key in map
-const void * setMapMemberData(map_t * map, void * data_addr, const char * key, int len);
+const void * setMapMemberData(map_t * map, const void * data, const char * key, int len);
 
+bool hasNode(const map_t * map, const char * key, int len);
 MapNode * getMapNode(const map_t * map, const char * key, int len);
-void * getMapMemberData(const map_t * map, const char * key, int len);
+const void * getMapMemberData(const map_t * map, const char * key, int len);
 int  getMapMember_int (map_t * map, const char * key, int len);
 bool getMapMember_bool(map_t * map, const char * key, int len);
 char getMapMember_char(map_t * map, const char * key, int len);
@@ -74,14 +80,14 @@ char getMapMember_char(map_t * map, const char * key, int len);
 //void delMembers(map_t map, ...);
 void freeMap(map_t * map);
 
-MapNode * popMapNode(map_t * map, const char * key, int len);
+MapNode * popMapNode(map_t * map, const MapNode * refNode);
 
 void printMap(map_t * map);
-int printNodeData(const MapNode * node, FILE * file);
+int printArgData(const ArgData * data, FILE * file);
 
-typedef int (*mapIterFuncType)(map_t *, MapNode *);
-void iterMap(map_t * map, mapIterFuncType mapIterFunc);
-void iterMapSingle(map_t * map, mapIterFuncType mapIterFunc);
+typedef int (*MapIterFunc_t)(map_t *, MapNode *);
+void iterMap      (map_t * map, MapIterFunc_t mapIterFunc);
+void iterMapSingle(map_t * map, MapIterFunc_t mapIterFunc);
 
 
 

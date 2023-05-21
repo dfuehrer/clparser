@@ -16,9 +16,26 @@ void initMap(map_t * map){
     memset(map, 0, sizeof *map);
 }
 
+MapNode * initNodeVals(MapNode * node, const void * data, DataType type, int len){
+    //// create node for this data, set data to data, next to null
+    //MapNode * node = (MapNode *) calloc(1, sizeof (MapNode));
+    node->data.ptr = data;
+    node->data.type = type;
+    node->data.required = false;        // default to optional cause thats pretty likely
+    node->data.negation = NULL;         // default to no negation
+    node->data.defaultData = NULL;      // default the default to NULL (would default to this data but it would change and I dont want to waste allocating data if not necessary
+
+    node->next = NULL;
+    node->namesLen = 0;
+    node->names = (const char * *) calloc(len, sizeof (char *));
+    node->nameLens = (int *) calloc(len, sizeof (int *));
+    return node;
+}
+
 // TODO there is an issue where you could use the same name to add new values but it would jut add them over top and keep the old values which would be very confusin when popping and tuff
 // add arbitrary number of keys to map to a data ptr
-void addMapMembers(map_t * map, void * data, DataType type, const char fmt[], ...){
+// TODO should this take an ArgData for the data arg
+MapNode * addMapMembers(map_t * map, void * data, DataType type, const char fmt[], ...){
     va_list args;
     va_start(args, fmt);
     // key and len args for str (stringview same)
@@ -28,13 +45,7 @@ void addMapMembers(map_t * map, void * data, DataType type, const char fmt[], ..
 
     // create node for this data, set data to data, next to null
     MapNode * node = (MapNode *) calloc(1, sizeof (MapNode));
-    node->data = data;
-    node->type = type;
-    node->next = NULL;
-    node->namesLen = 0;
-    int fmtlen = strlen(fmt);
-    node->names = (const char * *) calloc(fmtlen, sizeof (char *));
-    node->nameLens = (int *) calloc(fmtlen, sizeof (int *));
+    initNodeVals(node, data, type, strlen(fmt));
 
     // loop over items in format to figure out what the keys are
     // format d/i for int len, s for char * str, S for string view
@@ -54,44 +65,42 @@ void addMapMembers(map_t * map, void * data, DataType type, const char fmt[], ..
                 sv.str = va_arg(args, char *);
                 continue;
             default:
-                return error(5, 0, "map member fmt str '%s' invalid: '%c' unrecognized should be s, i, d, or S", fmt, *fp);
+                error(5, 0, "map member fmt str '%s' invalid: '%c' unrecognized should be s, i, d, or S", fmt, *fp);
+                return NULL;
         }
 
         // TODO allow strings without len
-        addedMember = addMapKey(map, node, sv, &ind);
+        addedMember |= addMapKey(map, node, sv, &ind);
         sv = (StringView){.str = NULL, .len = 0};
     }
     if(!addedMember){
-        return error(6, 0, "map key needs at least 1 str,len pair to add a member");
+        error(6, 0, "map key needs at least 1 str,len pair to add a member");
+        return NULL;
     }
 
     va_end(args);
+    return node;
 }
 
 // add arbitrary number of keys to map to a data ptr
-void addMapMembers_fromList(map_t * map, void * data, DataType type, llist_t * head, int numKeys){
+MapNode * addMapMembers_fromList(map_t * map, void * data, DataType type, llist_t * head, int numKeys){
     // key and len args for str (stringview same)
     bool addedMember = false;
     int ind = 0;
 
     // create node for this data, set data to data, next to null
     MapNode * node = (MapNode *) calloc(1, sizeof (MapNode));
-    node->data = data;
-    node->type = type;
-    node->next = NULL;
-    node->namesLen = 0;
-    node->names = (const char * *) calloc(numKeys, sizeof (char *));
-    node->nameLens = (int *) calloc(numKeys, sizeof (int *));
+    initNodeVals(node, data, type, numKeys);
 
-    // loop over items in format to figure out what the keys are
-    // format d/i for int len, s for char * str, S for string view
-    // % optional (ignored)
+    // loop over the llist, adding each key to this node
     for(llist_t * keyNode = head; ind < numKeys && keyNode != NULL; keyNode = keyNode->next){
-        addedMember = addMapKey(map, node, keyNode->sv, &ind);
+        addedMember |= addMapKey(map, node, keyNode->sv, &ind);
     }
     if(!addedMember){
-        return error(6, 0, "map key needs at least 1 str,len pair to add a member");
+        error(6, 0, "map key needs at least 1 str,len pair to add a member");
+        return NULL;
     }
+    return node;
 }
 
 bool addMapKey(map_t * map, MapNode * node, StringView sv, int * ind_ptr){
@@ -129,6 +138,11 @@ bool addMapKey(map_t * map, MapNode * node, StringView sv, int * ind_ptr){
     return true;
 }
 
+// NOTE probably just use getMapNode
+bool hasNode(const map_t * map, const char * key, int len){
+    return getMapNode(map, key, len) == NULL;
+}
+
 MapNode * getMapNode(const map_t * map, const char * key, int len){
     if(map == NULL){
         return NULL;
@@ -147,21 +161,21 @@ MapNode * getMapNode(const map_t * map, const char * key, int len){
     return NULL;
 }
 
-const void * setMapMemberData(map_t * map, void * data_addr, const char * key, int len){
+const void * setMapMemberData(map_t * map, const void * data, const char * key, int len){
     MapNode * node = getMapNode(map, key, len);
     if(node == NULL){
         error(7, 0, "key '%.*s' does not exist in map", len, key);
         return NULL;
     }
-    node->data = data_addr;
+    node->data.ptr = data;
 
-    return data_addr;
+    return node->data.ptr;
 }
 
-void * getMapMemberData(const map_t * map, const char * key, int len){
+const void * getMapMemberData(const map_t * map, const char * key, int len){
     MapNode * node = getMapNode(map, key, len);
     if(node != NULL){
-        return node->data;
+        return node->data.ptr;
     }
     error(7, 0, "key '%.*s' does not exist in map", len, key);
     return NULL;
@@ -174,6 +188,7 @@ int  getMapMember_int (map_t * map, const char * key, int len){
         return -0;
     }
     // TODO add int type specificness with the DataType enum (will need to not use getMapMemberData)
+    //  - probably just give a warning if its not an int
     int data = *((const int *)datas);
     return data;
 }
@@ -189,21 +204,21 @@ bool getMapMember_bool(map_t * map, const char * key, int len){
     return data;
 }
 
-int printNodeData(const MapNode * node, FILE * file){
-    if(node->data == NULL){
+int printArgData(const ArgData * data, FILE * file){
+    if(data->ptr == NULL){
         return 0;
     }
-    switch(node->type){
+    switch(data->type){
         case STR:
-            return fprintf(file, "%s", (char *) node->data);
+            return fprintf(file, "%s", (char *) data->ptr);
         case STRING_VIEW:
-            return fprintf(file, "%.*s", ((StringView *) node->data)->len, ((StringView *) node->data)->str);
+            return fprintf(file, "%.*s", ((StringView *) data->ptr)->len, ((StringView *) data->ptr)->str);
         case BOOL:
-            return fprintf(file, "%s", (*(bool *) node->data) ? "true\0" : "false");
+            return fprintf(file, "%s", (*(bool *) data->ptr) ? "true\0" : "false");
         case INT:
-            return fprintf(file, "%d", *(int *) node->data);
+            return fprintf(file, "%d", *(int *) data->ptr);
         case CHAR:
-            return fprintf(file, "%c", *(char *) node->data);
+            return fprintf(file, "%c", *(char *) data->ptr);
     }
     return 0;
 }
@@ -213,8 +228,8 @@ void printMap(map_t * map){
         printf("map ind %d\n", i);
         for(MapNode * node = map->ptrArray[i]; node != NULL; node = node->next){
             printf("node %p\n", node);
-            printf("data %p ", node->data);
-            printNodeData(node, stdout);
+            printf("data %p ", node->data.ptr);
+            printArgData(&node->data, stdout);
             printf("\n");
             for(int j = 0; j < node->namesLen; ++j){
                 printf("node %d key %d %.*s\n", i, j, node->nameLens[j], node->names[j]);
@@ -223,24 +238,38 @@ void printMap(map_t * map){
     }
 }
 
-void iterMap(map_t * map, mapIterFuncType mapIterFunc){
+void iterMap(map_t * map, MapIterFunc_t mapIterFunc){
+    if(map == NULL || map->len == 0){
+        return;
+    }
     // TODO maybe have some way of indicating the first time or something (maybe just pass in i as well)
+    int count = 0;
     for(int i = 0; i < MAP_ARR_LEN; ++i){
         for(MapNode * node = map->ptrArray[i]; node != NULL; node = node->next){
+            ++count;
             mapIterFunc(map, node);
+        }
+        if(count == map->len){
+            break;
         }
     }
 }
-void iterMapSingle(map_t * map, mapIterFuncType mapIterFunc){
-    const MapNode * * data_ptrs = calloc(map->len, sizeof (const MapNode *));
-    memset(data_ptrs, (long) NULL, map->len * sizeof (const MapNode *));
+void iterMapSingle(map_t * map, MapIterFunc_t mapIterFunc){
+    if(map == NULL || map->len == 0){
+        return;
+    }
+    // allocating space for whole map in case its needed
+    const MapNode * * node_ptrs = calloc(map->len - 1  , sizeof (const MapNode *));
+    memset(node_ptrs, (long) NULL,      (map->len - 1) * sizeof (const MapNode *));
     int ptrsLen = 0;
+    int count;
     // TODO maybe have some way of indicating the first time or something (maybe just pass in i as well)
     for(int i = 0; i < MAP_ARR_LEN; ++i){
         for(MapNode * node = map->ptrArray[i]; node != NULL; node = node->next){
+            ++count;
             bool skip = false;
             for(int j = 0; j < ptrsLen; ++j){
-                if(data_ptrs[j] == node){
+                if(node_ptrs[j] == node){
                     skip = true;
                     break;
                 }
@@ -248,61 +277,48 @@ void iterMapSingle(map_t * map, mapIterFuncType mapIterFunc){
             if(skip){
                 continue;
             }
-            data_ptrs[ptrsLen++] = node;
+            node_ptrs[ptrsLen++] = node;
             mapIterFunc(map, node);
         }
+        if(count == map->len){
+            break;
+        }
     }
-    free(data_ptrs);
+    free(node_ptrs);
 }
 
 // internal version of pop node that can check my exact names keys array thing
-MapNode * popMapNode_internal(map_t * map, const char * key, int len, const char ** names){
-    uint8_t hash = getHash(key, len);
-    //printf("key: '%.*s', hash: %d\n", len, key, hash);
+MapNode * popMapNode(map_t * map, const MapNode * refNode){
+    int i;
     MapNode * node = NULL;
-    MapNode * * prev_ptr = &map->ptrArray[hash];
-    for(node = map->ptrArray[hash]; node != NULL; prev_ptr = &(*prev_ptr)->next, node = node->next){
-        for(int i = 0; i < node->namesLen; ++i){
-            if(node->names == names){
+    for(i = 0; i < refNode->namesLen; ++i){
+        uint8_t hash = getHash(refNode->names[i], refNode->nameLens[i]);
+        //printf("key: '%.*s', hash: %d\n", len, key, hash);
+        node = NULL;
+        MapNode * * prev_ptr = &map->ptrArray[hash];
+        // TODO wouldnt need to loop like this if we just use doubly linked lists
+        for(node = map->ptrArray[hash]; node != NULL; prev_ptr = &(*prev_ptr)->next, node = node->next){
+            if(node == refNode){
                 (*prev_ptr) = node->next;
-                return node;
+                break;
             }
         }
     }
-    return NULL;
+    return node;
 }
 
 void freeMap(map_t * map){
     for(int i = 0; i < MAP_ARR_LEN; ++i){
         for(MapNode * node = map->ptrArray[i]; node != NULL; node = map->ptrArray[i]){
             // pop off all the nodes so we dont try to free them
-            for(int j = 0; j < node->namesLen; ++j){
-                //printf("gonna pop node %d %.*s\n", i, node->nameLens[j], node->names[j]);
-                //popMapNode(map, node->names[j], node->nameLens[j]);
-                popMapNode_internal(map, node->names[j], node->nameLens[j], node->names);
-            }
+            popMapNode(map, node);
             // free the node datas
             free(node->names);
             free(node->nameLens);
+            free(node->data.defaultData);
             free(node);
         }
     }
-}
-
-MapNode * popMapNode(map_t * map, const char * key, int len){
-    uint8_t hash = getHash(key, len);
-    //printf("key: '%.*s', hash: %d\n", len, key, hash);
-    MapNode * node = NULL;
-    MapNode * * prev_ptr = &map->ptrArray[hash];
-    for(node = map->ptrArray[hash]; node != NULL; prev_ptr = &(*prev_ptr)->next, node = node->next){
-        for(int i = 0; i < node->namesLen; ++i){
-            if(node->nameLens[i] == len && !strncmp(key, node->names[i], MIN(len, node->nameLens[i]))){
-                (*prev_ptr) = node->next;
-                return node;
-            }
-        }
-    }
-    return NULL;
 }
 
 

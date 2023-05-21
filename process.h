@@ -31,6 +31,6 @@ Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap
 Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * defaultValues[], bool print);
 
 void printUsage(map_t * flagMap, map_t * paramMap, const char * progname);
-void printHelp(map_t * flagMap, map_t * paramMap, char fmt[], ...);
+void printHelp (map_t * flagMap, map_t * paramMap, char fmt[], ...);
 
 #endif

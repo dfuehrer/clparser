@@ -52,6 +52,7 @@ char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue, 
         void * defaultVal = defaultValue;
         DataType type = defaultType;
         llist_t * node = head;
+        bool haveDefault = false;
         // loop through a param/flag list
         int sum = 0;
         for( ; ; c = ++ce){
@@ -65,6 +66,7 @@ char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue, 
             // add a new node onto the linked list
             // TODO check for issues in the format (like multiple =)
             //printf("param: '%.*s', state = %d, nextState = %d\n", (int)(ce - c), c, state, nextState);
+            // TODO add negation
             if(state == Space || state == Comma){
                 ++sum;
                 llist_t * n = node;
@@ -84,18 +86,23 @@ char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue, 
                 n->sv.str = c;
                 n->sv.len = ce - c;
             }else if(state == Equals){
-                // TODO create a stringview for this
                 StringView * sv = (StringView *) calloc(1, sizeof (StringView));
                 defaultVal = sv;
                 sv->str = c;
                 sv->len = (int) (ce - c);
                 type = STRING_VIEW;
+                haveDefault = true;
             }
             if(nextState == Space || nextState == Semicolon){
                 break;
             }
         }
-        addMapMembers_fromList(map, defaultVal, type, head, sum);
+        MapNode * mapNode = addMapMembers_fromList(map, defaultVal, type, head, sum);
+        if(haveDefault){
+            mapNode->data.defaultData = calloc(1, sizeof (ArgData));
+            mapNode->data.defaultData->ptr  = mapNode->data.ptr;
+            mapNode->data.defaultData->type = mapNode->data.type;
+        }
     }
     // cleanup the list
     for(llist_t * node = head ; node != NULL; ){
@@ -158,8 +165,12 @@ int printKeyValues(const MapNode * node){
         }
         // print out the key='value' or key="$i" in POSIX sh synax
         // TODO make a way to select which syntax to print out in
+        //  - start with bash becuase i think there would be some great features to take advantage of (hopefully associative arrays (dicts/maps) exist)
+        //  - hopefully zsh would have associative arrays or something
+        //  - csh should be easy, same as POSIX sh but `set var val`, no fancy features
+        //  - probably dont care at all about fish or conch but they exist maybe
         char * pre, * post;
-        switch(node->type){
+        switch(node->data.type){
             // TODO maybe make sure the strings are ' escaped
             case STR:
             case STRING_VIEW:
@@ -173,7 +184,7 @@ int printKeyValues(const MapNode * node){
                 break;
         }
         printf("%.*s=%s", node->nameLens[i], str, pre);
-        printNodeData(node, stdout);
+        printArgData(&node->data, stdout);
         printf("%s\n", post);
         // TODO maybe handle this str so we dont free it multiple times in a loop
         if(tmpstr != NULL){
@@ -186,18 +197,18 @@ int printKeyValues(const MapNode * node){
 
 
 int printKeyValuesWrapper(map_t * map, MapNode * node){
-    if(node->data != NULL){
+    if(node->data.ptr != NULL){
         return printKeyValues(node);
-    //}else if(node->type == INT){
-    //    free(node->data);
-    //    node->data = NULL;
+    //}else if(node->data.type == INT){
+    //    free(node->data.ptr);
+    //    node->data.ptr = NULL;
     }
     return 0;
 }
 int freeNodeInts(map_t * map, MapNode * node){
-    if(node->data != NULL && node->type == INT){
-        free(node->data);
-        node->data = NULL;
+    if(node->data.ptr != NULL && node->data.type == INT){
+        free((void *)node->data.ptr);
+        node->data.ptr = NULL;
     }
     return 0;
 }
@@ -225,29 +236,28 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                     if(!isalnum(*f)){
                         return NotAlnum;   // error if f not alphanumeric
                     // TODO consider making a large string and then sprintf to it and print it at the end so it doesnt stop halfway through on an error
-                    // if this is last char and the next param doesnt have a - then this must be a parameter
-                    }else if(((f[1]) == '\000') && ((i+1 < argc) && (argv[i+1][0] != '-'))){   // then this is a parameter
+                    // if this is last char and the next param doesnt have a - then this is probably a parameter
+                    }else if(((f[1]) == '\000') && ((i+1 < argc) && (argv[i+1][0] != '-'))){
                         MapNode * node = getMapNode(paramMap, f, 1);
-                        // TODO make the node data const..
                         if(node != NULL){
                             ++i;
                             if(print){
                                 // set node value to this argv ind to use for $i var
                                 int * varnum = (int *) calloc(1, sizeof (int));
                                 *varnum = i;
-                                node->data = varnum;
-                                node->type = INT;
+                                node->data.ptr  = varnum;
+                                node->data.type = INT;
                                 //printKeyValues(node);
                                 //// reset data to NULL so i dont print it out as a default val
                                 //node->data = NULL;
                             }else{
-                                if(node->type == INT){
+                                if(node->data.type == INT){
                                     int * num = (int *) calloc(1, sizeof (int));
                                     *num = strtol(argv[i], NULL, 0);
-                                    node->data = num;
+                                    node->data.ptr  = num;
                                 }else{
-                                    node->data = (void *)argv[i];
-                                    node->type = STR;
+                                    node->data.ptr  = (void *)argv[i];
+                                    node->data.type = STR;
                                 }
                             }
                             //printf("wtharg:\t");
@@ -264,54 +274,74 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                             //puts("didnt find");
                             return DidNotFind;       // didnt find it
                         }
-                        node->data = (void *)&flagTrue;
-                        node->type = BOOL;
+                        node->data.ptr  = (void *)&flagTrue;
+                        node->data.type = BOOL;
                         //if(print){
                         //    printKeyValues(node);
                         //}
                     }
                 }
-            }else{
+            }else if(argv[i][2] == '\000'){
                 // if this arg is just '--', then all the rest of the args are just default vals, dont parse
-                if(argv[i][2] == '\000'){
-                    for(++i; i < argc; ++i, ++thisDef){
-                        *thisDef = argv[i];
-                    }
-                    break;
+                for(++i; i < argc; ++i, ++thisDef){
+                    *thisDef = argv[i];
                 }
+                break;
+            }else{
                 // this is a word thign
                 const char * word = argv[i] + 2;
+                const char * val  = NULL;
+                int wordlen = -1;
                 //printf("word:\t");
                 //puts(word);
                 bool isAlnum = true;
                 for(const char * c = word; *c && isAlnum; c++){
+                    if(*c == '='){
+                        wordlen = c - word;
+                        val = c + 1;
+                        break;
+                    }
                     isAlnum = (isalnum(*c) || (*c == '-') || (*c == '_'));
+                }
+                if(wordlen == -1){
+                    // if no = in word, then set len to strlen
+                    wordlen = strlen(word);
+                    if((i+1 < argc) && (argv[i+1][0] != '-')){
+                        // if next word doesn't start with - then set that as the val to try
+                        val = argv[i+1];
+                    }
                 }
                 if(!isAlnum){
                     //puts("well its gotta be alnum");
                     return NotAlnum;   // error if f not alphanumeric
                 // TODO consider making a large string and then sprintf to it and print it at the end so it doesnt stop halfway through on an error
-                }else if((i+1 < argc) && (argv[i+1][0] != '-')){   // then this is probably a parameter
-                    MapNode * node = getMapNode(paramMap, word, strlen(word));
+                //}else if((i+1 < argc) && (argv[i+1][0] != '-')){   // then this is probably a parameter
+                }else if(val != NULL){   // then this is probably a parameter
+                    MapNode * node = getMapNode(paramMap, word, wordlen);
                     if(node != NULL){
-                        ++i;
                         if(print){
-                            // set node value to this argv ind to use for $i var
-                            int * varnum = (int *) calloc(1, sizeof (int));
-                            *varnum = i;
-                            node->data = varnum;
-                            node->type = INT;
-                            //printKeyValues(node);
-                            // reset data to NULL so i dont print it out as a default val
-                            node->data = NULL;
-                        }else{
-                            if(node->type == INT){
-                                int * num = (int *) calloc(1, sizeof (int));
-                                *num = strtol(argv[i], NULL, 0);
-                                node->data = num;
+                            if(val == argv[i]){
+                                ++i;
+                                // set node value to this argv ind to use for $i var
+                                int * varnum = (int *) calloc(1, sizeof (int));
+                                *varnum = i;
+                                node->data.ptr  = varnum;
+                                node->data.type = INT;
+                                //printKeyValues(node);
+                                // reset data to NULL so i dont print it out as a default val
+                                //node->data.ptr  = NULL;
                             }else{
-                                node->data = (void *)argv[i];
-                                node->type = STR;
+                                node->data.ptr  = val;
+                                node->data.type = STR;
+                            }
+                        }else{
+                            if(node->data.type == INT){
+                                int * num = (int *) calloc(1, sizeof (int));
+                                *num = strtol(val, NULL, 0);
+                                node->data.ptr = num;
+                            }else{
+                                node->data.ptr  = val;
+                                node->data.type = STR;
                             }
                         }
                         //printf("wtharg:\t");
@@ -323,13 +353,14 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                     }
                 }
                 if(checkFlags){                                          // i think the only other option is its a flag
-                    MapNode * node = getMapNode(flagMap, word, 1);
+                    MapNode * node = getMapNode(flagMap, word, wordlen);
                     if(node == NULL){
                         //puts("didnt find");
                         return DidNotFind;       // didnt find it
                     }
-                    node->data = (void *)&flagTrue;
-                    node->type = BOOL;
+                    node->data.ptr  = (void *)&flagTrue;
+                    // TODO this shouldnt be necessary
+                    node->data.type = BOOL;
                     //if(print){
                     //    printKeyValues(node);
                     //}
@@ -344,20 +375,15 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
         }
     }
 
-    // now print defaults values out
-    // TODO only print out values that werent already found in the args
-    if(print){
-        // TODO probably just print all flags
-        iterMapSingle(flagMap,  printKeyValuesWrapper);
-        iterMapSingle(paramMap, printKeyValuesWrapper);
-        iterMapSingle(paramMap, freeNodeInts);
-    }
-
     // now print out the values without parameters (defaults)
     if(print){
-        // TODO I feel like defaults just isnt a good enough name here so figure something else out
-        // make defaults replace the args using the set - notation below
-        // - TODO should i keep defaults instead so you dont lose the original args?
+        // print out all values
+        iterMapSingle(flagMap,  printKeyValuesWrapper);
+        iterMapSingle(paramMap, printKeyValuesWrapper);
+        // free the ints now
+        iterMapSingle(paramMap, freeNodeInts);
+
+        // TODO have an option to not lose the optional args
         printf("set --");
         //printf("defaults='%s", *defaultValues[0]);
         int i = 1;
@@ -409,7 +435,7 @@ int printFlagsWrapper(map_t * map, MapNode * node){
 int printParams(MapNode * node, FILE * file, bool optional){
     int i;
     int lastWordInd = 0;
-    int len = fprintf(file, " ");
+    int len  = fprintf(file, " ");
     if(optional){
         len += fprintf(file, "[ ");
     }
@@ -422,9 +448,9 @@ int printParams(MapNode * node, FILE * file, bool optional){
         }
     }
     len += fprintf(file, "%.*s", node->nameLens[lastWordInd], node->names[lastWordInd]);
-    if(node->data != NULL){
+    if(node->data.defaultData != NULL && node->data.defaultData->ptr != NULL){
         len += fprintf(file, " = ");
-        len += printNodeData(node, file);
+        len += printArgData(node->data.defaultData, file);
     }
     if(optional){
         len += fprintf(file, " ]");
@@ -457,9 +483,8 @@ void printHelp(map_t * flagMap, map_t * paramMap, char fmt[], ...){
         helpText = va_arg(args, char *);
         node = getMapNode(paramMap, key, commaPos - key);
         if(node != NULL){
-            // TODO add a way figuring out if someting is optional (include using default values)
-            bool optional = (strstr(helpText, "optional") != NULL);
-            printedLen = printParams(node, stderr, optional);
+            //bool optional = (strstr(helpText, "optional") != NULL);
+            printedLen = printParams(node, stderr, !node->data.required);
         }else{
             node = getMapNode(flagMap, key, commaPos - key);
             if(node == NULL){
