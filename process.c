@@ -8,6 +8,8 @@
 
 #define ARG_SPACE   (50)
 
+// TODO add C++ library
+
 // so the idea of this is that it will go through buff and add pointers to a linked list to dostuffs
 // so im gonna need to make linked list functions to do all the linked list things like swapping pointers and stuff
 // also i might want to make it sort the linked list as it isbeing created and stuff but im not sure
@@ -16,7 +18,7 @@
 // the other thing i could do is make a separate list for the single letters and words
 // i think i want separate lists for the parameters and words and have this do them separately
 // also this should probably replace spaces and commas with \0 so that it looks like a full string then it can be easily compared
-// TODO actually rework the linked list stuff to use the maps
+//
 // - maybe iterate through all arg vals to find how many tben create fmt str
 //  - now that i think about it i dont have a way of putting together the variadic arvuments so i need another interface
 // then parse the args by setting stuff in the maps and getting stuff from the maps
@@ -25,10 +27,14 @@ char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue, 
     // create all the links and variables
     // also figure out dynamically creating all these linked list node things
     char * typeptr = strstr(buf, argType);
-    if(typeptr == NULL) return buf;     // didnt find this argType (not necessarily a fault but if both are missing then it doesnt work), return buf to indicate just didnt find this
+    if(typeptr == NULL){
+        return NULL;     // didnt find this argType (not necessarily a fault but if both are missing then it doesnt work), return buf to indicate just didnt find this
+    }
     typeptr += strlen(argType);
     char * end = strchr(typeptr, ';');
-    if(end == NULL) return NULL;        // there has to be a semicolon to end the definition    (should check for a NULL to err immediately)
+    if(end == NULL){
+        return NULL;        // there has to be a semicolon to end the definition    (should check for a NULL to err immediately)
+    }
     char * c = typeptr;
     for( ; *c == ' '; c++);
     char * ce = c + 1;
@@ -348,11 +354,11 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
     }
 
     // now print out the values without parameters (defaults)
-    if(*defaultValues[0] != NULL && print){
+    if(print){
         // TODO I feel like defaults just isnt a good enough name here so figure something else out
         // make defaults replace the args using the set - notation below
         // - TODO should i keep defaults instead so you dont lose the original args?
-        printf("set -");
+        printf("set --");
         //printf("defaults='%s", *defaultValues[0]);
         int i = 1;
         for(thisDef = *defaultValues; *thisDef != NULL; ++thisDef){
@@ -448,10 +454,12 @@ void printHelp(map_t * flagMap, map_t * paramMap, char fmt[], ...){
         if(commaPos == NULL){
             commaPos = strchr(key, '\000');
         }
+        helpText = va_arg(args, char *);
         node = getMapNode(paramMap, key, commaPos - key);
         if(node != NULL){
-            // TODO add a way figuring out if someting is optional
-            printedLen = printParams(node, stderr, true);
+            // TODO add a way figuring out if someting is optional (include using default values)
+            bool optional = (strstr(helpText, "optional") != NULL);
+            printedLen = printParams(node, stderr, optional);
         }else{
             node = getMapNode(flagMap, key, commaPos - key);
             if(node == NULL){
@@ -459,7 +467,6 @@ void printHelp(map_t * flagMap, map_t * paramMap, char fmt[], ...){
             }
             printedLen = printFlags(node, stderr);
         }
-        helpText = va_arg(args, char *);
         fprintf(stderr, "%-*s %s\n", ARG_SPACE - printedLen - 1, "", helpText);
         if(commaPos[0] == '\000'){
             break;

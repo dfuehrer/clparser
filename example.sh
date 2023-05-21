@@ -1,6 +1,6 @@
 #!/bin/sh
 make || exit
-args='flags: f,flag g qwerty h,hist; parameters: q,asdf u=defval nothing zzz,z,Z=someth;'
+args='flags: f,flag g qwerty h,help; parameters: q,asdf u=defval nothing zzz,z,Z=someth;'
 # print out the raw output
 echo raw output:
 echo "$args" | ./clparser "$@" || { ec=$?; echo exit code: $ec; exit $ec; }
@@ -10,7 +10,7 @@ eval "$(echo "$args" | ./clparser "$@")"
 echo f,flag = "$flag"
 echo g = "$g"
 echo qwerty = "$qwerty"
-echo h,hist = "$hist"
+echo h,help = "$help"
 echo q,asdf = "$asdf"
 echo u = "$u"
 echo nothing = "$nothing"

@@ -40,6 +40,7 @@ typedef struct MapNode_s{
     // TODO figure out what this should actually hold and put that instead
     //  alternatively let it hold typed data in the void pointer and then store a type to know how to access it (use an enum or something for int, str, bool, etc)
     //const void * * data_ptr;
+    // TODO make the data a struct that holds other info helpful for this purpose like default value, type, other attrs like required, etc
     void * data;
     // TODO add the type to this prolly
     DataType type;
@@ -61,6 +62,7 @@ void initMap(map_t * map);
 void addMapMembers(map_t * map, void * data, DataType type, const char fmt[], ...);
 void addMapMembers_fromList(map_t * map, void * data, DataType type, llist_t * head, int numKeys);
 
+// TODO add check for if key in map
 const void * setMapMemberData(map_t * map, void * data_addr, const char * key, int len);
 
 MapNode * getMapNode(const map_t * map, const char * key, int len);

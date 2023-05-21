@@ -4,8 +4,6 @@
 //#include <stdlib.h>
 #include "process.h"
 
-#define BUF_SIZE    1000   // yes this will probably cause me problems later, maybe ill even make it dynamic like a quitter
-#define OUTPUT_SIZE 2000   // yes this will probably cause me problems later, maybe ill even make it dynamic like a quitter
 
 // TODO clean up the new section and put it in a function thing
 // TODO itd be cool if there were negation switches that if you gave them they just negate the other automatically (they cant both have the same value)
@@ -79,8 +77,6 @@ int main(int argc, const char * const argv[]){
     //     puts(argv[i]);
     // }
 
-    // TODO probably replace with getline so i can read arbitrary length
-    //  cause if im not reading arbitrary length i should actually error here if its longer than BUF_SIZE
     char * cbuf = NULL;
     size_t n = 0;
     ssize_t len;
@@ -110,16 +106,16 @@ int main(int argc, const char * const argv[]){
 
     // TODO dont error yet, not finding is only bad if we find neither
     // if the ferr is before or after the buff then we know theres no flags
-    int noflag = 0;
+    bool noflag = false;
     if(ferr == NULL || ferr <= cbuf || ferr > ce){
-        noflag = 1;
+        noflag = true;
     }
     char * pcbuf;
 
     // find the last ; and see if ferr is there or not
     for(pcbuf = ce-1; (*pcbuf != ';') && (*pcbuf != '\0') && (pcbuf > cbuf); --pcbuf);
     // if ferr (end of flags) at pcbuf (last ;) then params should be at the beginning, otherwise start at ferr
-    pcbuf = (pcbuf+1 == ferr) ? cbuf : ferr;
+    pcbuf = (pcbuf+1 == ferr || noflag) ? cbuf : ferr;
 
     // puts("params now");
     //char * perr = linkParams(pcbuf, &paramHead, "parameters:");
@@ -128,7 +124,7 @@ int main(int argc, const char * const argv[]){
     // if didnt find params and no flag then return 1 this is bad
     if((perr == NULL || perr <= cbuf || perr > ce) && noflag){
         // TODO figure out error
-        fprintf(stderr, "ill figure this error out later");
+        fprintf(stderr, "ill figure this error out later\n");
         return 3;
     }
 
@@ -139,7 +135,8 @@ int main(int argc, const char * const argv[]){
     //// TODO figure out whether we should do this
     //if(help){
     //    printUsage(&flagMap, &paramMap, argv[0]);
-    //    printHelp(&flagMap, &paramMap, "help,flag,qwerty", "print this help message", "i dunno, doesnt matter", "other message");
+    //    //printHelp(&flagMap, &paramMap, "help,flag,qwerty,asdf,zzz", "print this help message", "i dunno, doesnt matter", "other message", "something whatever", "i dunno, something optional");
+    //    printHelp(&flagMap, &paramMap, "help", "print this help message");
     //    //printf("exit");
     //    return 1;
     //}
