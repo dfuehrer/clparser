@@ -61,6 +61,8 @@ typedef struct MapNode_s{
     int namesLen;
     // TODO maybe go back to this being a void pointer and have this stuff be on the process.h specificity
     ArgData data;
+    // TODO this currently has a bug where the node is duplicated across elements so they all share the same `next` value even though that doesn't make any sense (doesn't cause bugs, does increase collisions, decreasing performance)
+    //  - just create a different structure that contains a pointer to one of these (without next) and a next node so the next is unique to the outer layer but the keys and data are shared
     struct MapNode_s * next;
 } MapNode;
 

@@ -218,6 +218,7 @@ int printKeyValues(const MapNode * node){
         //  - hopefully zsh would have associative arrays or something
         //  - csh should be easy, same as POSIX sh but `set var val`, no fancy features
         //  - probably dont care at all about fish or conch but they exist maybe
+        //      - i guess ksh exists too or something
         char * pre, * post;
         switch(node->data.type){
             // TODO maybe make sure the strings are ' escaped
@@ -228,8 +229,8 @@ int printKeyValues(const MapNode * node){
                 pre = post = "'";
                 break;
             case INT:
-                pre = "\"$";
-                post = "\"";
+                pre = "\"${";
+                post = "}\"";
                 break;
         }
         printf("%.*s=%s", node->nameLens[i], str, pre);
@@ -370,7 +371,7 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                 }else if(val != NULL){   // then this is probably a parameter
                     MapNode * node = getMapNode(paramMap, word, wordlen);
                     if(node != NULL){
-                        if(val == argv[i]){
+                        if(val == argv[i+1]){
                             ++i;
                         }
                         if(print){
@@ -436,6 +437,7 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
         iterMapSingle(paramMap, freeNodeInts);
 
         // TODO have an option to not lose the optional args
+        // TODO have this use something that defines the shell syntax
         printf("set --");
         //printf("defaults='%s", *defaultValues_ptr[0]);
         int i = 1;
@@ -443,7 +445,7 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
             //printf(" '%s'", *thisDef);
             // find index of this string for printing out var to use
             for( ; i < argc && *thisDef != argv[i]; ++i);
-            printf(" \"$%d\"", i);
+            printf(" \"${%d}\"", i);
             //printf(" %s", *thisDef);
         }
         printf("\n");
