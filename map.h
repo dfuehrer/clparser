@@ -24,14 +24,25 @@ typedef struct {
     int len;
 } StringView;
 
-typedef struct llist_s {
+struct MapNode_s;
+struct ArgData_s;
+
+//typedef struct llist_s {
+//    void * data;
+//    struct llist_s * next;
+//} llist_t;
+
+typedef struct sllist_s {
     StringView sv;
-    struct llist_s * next;
-} llist_t;
+    struct sllist_s * next;
+} sllist_t;
+
+typedef struct mnllist_s {
+    struct MapNode_s * node;
+    struct mnllist_s * next;
+} mnllist_t;
 
 // TODO define errors in an enum somewhere
-
-struct MapNode_s;
 
 
 // struct that holds other info helpful for this purpose like default value, type, other attrs like required, negation of other nodes, etc
@@ -39,7 +50,8 @@ typedef struct ArgData_s {
     const void * ptr;
     DataType type;
     bool required;
-    struct MapNode_s * negation;
+    // TODO make multiple negation nodes so it can negate multiple things
+    mnllist_t * negations;
     struct ArgData_s * defaultData;
 } ArgData;
 
@@ -64,8 +76,8 @@ void initMap(map_t * map);
 // fmt is a "format string" that specifies what types the variadic keys are
 // %S is a StringView, %s is a char[] for the key, %d or %i is an int for the string length
 // length must follow a string, otherwise it will error
-MapNode * addMapMembers(map_t * map, void * data, DataType type, const char fmt[], ...);
-MapNode * addMapMembers_fromList(map_t * map, void * data, DataType type, llist_t * head, int numKeys);
+MapNode * addMapMembers(map_t * map, void * data, DataType type, bool setDefault, const char fmt[], ...);
+MapNode * addMapMembers_fromList(map_t * map, void * data, DataType type, sllist_t * head, int numKeys, bool setDefault);
 
 // TODO add check for if key in map
 const void * setMapMemberData(map_t * map, const void * data, const char * key, int len);

@@ -1,10 +1,15 @@
 #!/bin/sh
 make || exit
-args='flags: f,flag g qwerty h,help; parameters: q,asdf u=defval nothing zzz,z,Z=someth;'
+args='flags: f,flag=-g=-h g=-h=-qwerty qwerty=-flag=-h=-g h,help; parameters: q,asdf u=defval nothing zzz,z,Z=someth;'
 # print out the raw output
 echo raw output:
-vars="$(echo "$args" | ./clparser "$@")" || { ec=$?; echo exit code: $ec; exit $ec; }
+vars="$(echo "$args" | ./clparser "$@")"
+ec=$?
 echo "$vars"
+if [ "$ec" -ne 0 ]; then
+    echo exit code: $ec
+    exit $ec
+fi
 # actually run it and show results
 echo variable results:
 eval "$vars"

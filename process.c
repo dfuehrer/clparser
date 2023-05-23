@@ -8,6 +8,13 @@
 
 #define ARG_SPACE   (50)
 
+
+typedef struct nllist_s {
+    StringView sv;
+    MapNode * origNode;
+    struct nllist_s * next;
+} nllist_t;
+
 // TODO add C++ library
 
 // so the idea of this is that it will go through buff and add pointers to a linked list to dostuffs
@@ -23,16 +30,17 @@
 //  - now that i think about it i dont have a way of putting together the variadic arvuments so i need another interface
 // then parse the args by setting stuff in the maps and getting stuff from the maps
 // TODO also make a handy function to easily add values from args to the list? (for C interface that doesnt need to parse a string)
-char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue, DataType defaultType){
+char * parseArgSpec(char * buf, map_t * map, char argType[], void * defaultValue, DataType defaultType, bool allowDefaults){
     // create all the links and variables
     // also figure out dynamically creating all these linked list node things
     char * typeptr = strstr(buf, argType);
     if(typeptr == NULL){
-        return NULL;     // didnt find this argType (not necessarily a fault but if both are missing then it doesnt work), return buf to indicate just didnt find this
+        return buf;         // didnt find this argType (not necessarily a fault but if both are missing then it doesnt work), return buf to indicate just didnt find this
     }
     typeptr += strlen(argType);
     char * end = strchr(typeptr, ';');
     if(end == NULL){
+        fprintf(stderr, "spec must end in ';', but got '%s'\n", buf);
         return NULL;        // there has to be a semicolon to end the definition    (should check for a NULL to err immediately)
     }
     char * c = typeptr;
@@ -47,11 +55,12 @@ char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue, 
     State state = Space, nextState = Space;
     // loop throguh everything and make all the linked list stuffs
     //printf("state = %d, nextState = %d\n", state, nextState);
-    llist_t * head = NULL;
+    sllist_t * head = NULL;
+    nllist_t * negHead = NULL;
     for( ; nextState != Semicolon; c = ++ce){
         void * defaultVal = defaultValue;
         DataType type = defaultType;
-        llist_t * node = head;
+        sllist_t * node = head;
         bool haveDefault = false;
         // loop through a param/flag list
         int sum = 0;
@@ -61,21 +70,23 @@ char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue, 
             for( ; isalnum(*ce) || (*ce == '-') || (*ce == '_'); ++ce);
             // set next state based on the upcoming symbol
             nextState = setState(ce);
-            // if the next state is 0 then its an error and exit unless were on the last line
-            if(nextState == Error && (state != Semicolon))  return NULL;
+            // if the next state is error then exit unless were on the last line
+            if(nextState == Error && (state != Semicolon)){
+                fprintf(stderr, "spec got bad value '%c' before end with ';'", *ce);
+                return NULL;
+            }
             // add a new node onto the linked list
             // TODO check for issues in the format (like multiple =)
             //printf("param: '%.*s', state = %d, nextState = %d\n", (int)(ce - c), c, state, nextState);
-            // TODO add negation
             if(state == Space || state == Comma){
                 ++sum;
-                llist_t * n = node;
+                sllist_t * n = node;
                 // if we are at the end of the list, then just add a new at the beginning
                 // we keep the list through all the params/flags and just override the data
                 // NOTE this only works if the addMapMembers_fromList function uses the length of the list directly
                 if(node == NULL){
                     //printf("allocating new node\n");
-                    node = (llist_t *) calloc(1, sizeof (llist_t));
+                    node = (sllist_t *) calloc(1, sizeof (sllist_t));
                     node->next = head;
                     head = node;
                     n = node;
@@ -86,27 +97,65 @@ char * linkParams(char * buf, map_t * map, char argType[], void * defaultValue, 
                 n->sv.str = c;
                 n->sv.len = ce - c;
             }else if(state == Equals){
-                StringView * sv = (StringView *) calloc(1, sizeof (StringView));
-                defaultVal = sv;
-                sv->str = c;
-                sv->len = (int) (ce - c);
-                type = STRING_VIEW;
-                haveDefault = true;
+                if(!allowDefaults){
+                    if(*c != '-'){
+                        // error if not allowing defaults and this isnt a negation
+                        fprintf(stderr, "not allowing defaults, but got '=%s', use '=-%s' for negation\n", c, c);
+                        return NULL;
+                    }
+                    // increment c to get past -
+                    ++c;
+                    // add this negation to a list to iter over later
+                    nllist_t * negNode = (nllist_t *) calloc(1, sizeof (nllist_t));
+                    negNode->next = negHead;
+                    negHead = negNode;
+                    negNode->sv.str = c;
+                    negNode->sv.len = ce - c;
+                }else{
+                    // TODO have some checking so there arent Equals in flags
+                    StringView * sv = (StringView *) calloc(1, sizeof (StringView));
+                    defaultVal = sv;
+                    sv->str = c;
+                    sv->len = (int) (ce - c);
+                    type = STRING_VIEW;
+                    haveDefault = true;
+                }
             }
             if(nextState == Space || nextState == Semicolon){
                 break;
             }
         }
-        MapNode * mapNode = addMapMembers_fromList(map, defaultVal, type, head, sum);
-        if(haveDefault){
-            mapNode->data.defaultData = calloc(1, sizeof (ArgData));
-            mapNode->data.defaultData->ptr  = mapNode->data.ptr;
-            mapNode->data.defaultData->type = mapNode->data.type;
+        MapNode * mapNode = addMapMembers_fromList(map, defaultVal, type, head, sum, haveDefault);
+        if(!allowDefaults){
+            // if no default then check if there are negations
+            for(nllist_t * negNode = negHead; negNode != NULL && negNode->origNode == NULL; negNode = negNode->next){
+                negNode->origNode = mapNode;
+            }
         }
     }
     // cleanup the list
-    for(llist_t * node = head ; node != NULL; ){
-        llist_t * n = node->next;
+    for(sllist_t * node = head ; node != NULL; ){
+        sllist_t * n = node->next;
+        free(node);
+        node = n;
+    }
+    // find the negations (and cleanup list)
+    for(nllist_t * node = negHead ; node != NULL; ){
+        nllist_t * n = node->next;
+        // find the negation map node
+        MapNode * negMapNode = getMapNode(map, node->sv.str, node->sv.len);
+        if(negMapNode == NULL){
+            // if didnt find the negation then error
+            fprintf(stderr, "could not find '%.*s' defined for negation for %.*s\n", node->sv.len, node->sv.str, node->origNode->nameLens[0], node->origNode->names[0]);
+            return NULL;
+        }
+        //node->origNode->data.negation = negMapNode;
+        // add negation node negation to this node's list so the negation node will negate this node
+        mnllist_t * mnlNode = (mnllist_t *) malloc(sizeof (mnllist_t));
+        mnlNode->node = node->origNode;
+        mnlNode->next = negMapNode->data.negations;
+        negMapNode->data.negations = mnlNode;
+
         free(node);
         node = n;
     }
@@ -213,12 +262,13 @@ int freeNodeInts(map_t * map, MapNode * node){
     return 0;
 }
 
-Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * defaultValues[], bool print){
-    // TODO is this guarenteed to always exist?
+Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * defaultValues_ptr[], bool print){
 
-    *defaultValues = (const char **) calloc((argc), sizeof (const char *));
-    memset(*defaultValues, (long) NULL, argc);
-    const char ** thisDef = *defaultValues;
+    // defaultValues_ptr is a 
+    // TODO maybe try to accomodate if defaultValues_ptr is NULL
+    *defaultValues_ptr = (const char **) calloc((argc), sizeof (const char *));
+    memset(*defaultValues_ptr, (long) NULL, argc);
+    const char ** thisDef = *defaultValues_ptr;
 
     bool checkFlags;
 
@@ -234,6 +284,7 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                 for(const char * f = argv[i] + 1; *f; f++){
                     //printf("let:\t%c\n", *f);
                     if(!isalnum(*f)){
+                        fprintf(stderr, "char '%c' in %s not allowed\n", *f, argv[i]);
                         return NotAlnum;   // error if f not alphanumeric
                     // TODO consider making a large string and then sprintf to it and print it at the end so it doesnt stop halfway through on an error
                     // if this is last char and the next param doesnt have a - then this is probably a parameter
@@ -247,16 +298,13 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                                 *varnum = i;
                                 node->data.ptr  = varnum;
                                 node->data.type = INT;
-                                //printKeyValues(node);
-                                //// reset data to NULL so i dont print it out as a default val
-                                //node->data = NULL;
                             }else{
                                 if(node->data.type == INT){
                                     int * num = (int *) calloc(1, sizeof (int));
                                     *num = strtol(argv[i], NULL, 0);
                                     node->data.ptr  = num;
                                 }else{
-                                    node->data.ptr  = (void *)argv[i];
+                                    node->data.ptr  = argv[i];
                                     node->data.type = STR;
                                 }
                             }
@@ -272,13 +320,15 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                         MapNode * node = getMapNode(flagMap, f, 1);
                         if(node == NULL){
                             //puts("didnt find");
+                            printf("did not find '%c' as either a flag or param\n", *f);
                             return DidNotFind;       // didnt find it
                         }
-                        node->data.ptr  = (void *)&flagTrue;
+                        node->data.ptr  = &flagTrue;
                         node->data.type = BOOL;
-                        //if(print){
-                        //    printKeyValues(node);
-                        //}
+                        for(mnllist_t * negNode = node->data.negations; negNode != NULL; negNode = negNode->next){
+                            negNode->node->data.ptr  = &flagFalse;
+                            negNode->node->data.type = BOOL;
+                        }
                     }
                 }
             }else if(argv[i][2] == '\000'){
@@ -313,23 +363,23 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                 }
                 if(!isAlnum){
                     //puts("well its gotta be alnum");
+                    fprintf(stderr, "arg %s not allowed, should be alnum or -/_", argv[i]);
                     return NotAlnum;   // error if f not alphanumeric
                 // TODO consider making a large string and then sprintf to it and print it at the end so it doesnt stop halfway through on an error
                 //}else if((i+1 < argc) && (argv[i+1][0] != '-')){   // then this is probably a parameter
                 }else if(val != NULL){   // then this is probably a parameter
                     MapNode * node = getMapNode(paramMap, word, wordlen);
                     if(node != NULL){
+                        if(val == argv[i]){
+                            ++i;
+                        }
                         if(print){
                             if(val == argv[i]){
-                                ++i;
                                 // set node value to this argv ind to use for $i var
                                 int * varnum = (int *) calloc(1, sizeof (int));
                                 *varnum = i;
                                 node->data.ptr  = varnum;
                                 node->data.type = INT;
-                                //printKeyValues(node);
-                                // reset data to NULL so i dont print it out as a default val
-                                //node->data.ptr  = NULL;
                             }else{
                                 node->data.ptr  = val;
                                 node->data.type = STR;
@@ -356,14 +406,16 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                     MapNode * node = getMapNode(flagMap, word, wordlen);
                     if(node == NULL){
                         //puts("didnt find");
+                        printf("did not find '%s' as either a flag or param\n", word);
                         return DidNotFind;       // didnt find it
                     }
-                    node->data.ptr  = (void *)&flagTrue;
+                    node->data.ptr  = &flagTrue;
                     // TODO this shouldnt be necessary
                     node->data.type = BOOL;
-                    //if(print){
-                    //    printKeyValues(node);
-                    //}
+                    for(mnllist_t * negNode = node->data.negations; negNode != NULL; negNode = negNode->next){
+                        negNode->node->data.ptr  = &flagFalse;
+                        negNode->node->data.type = BOOL;
+                    }
                 }
             }
         }else{
@@ -385,9 +437,9 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
 
         // TODO have an option to not lose the optional args
         printf("set --");
-        //printf("defaults='%s", *defaultValues[0]);
+        //printf("defaults='%s", *defaultValues_ptr[0]);
         int i = 1;
-        for(thisDef = *defaultValues; *thisDef != NULL; ++thisDef){
+        for(thisDef = *defaultValues_ptr; *thisDef != NULL; ++thisDef){
             //printf(" '%s'", *thisDef);
             // find index of this string for printing out var to use
             for( ; i < argc && *thisDef != argv[i]; ++i);
@@ -403,15 +455,15 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
 
 
 // define function to parse args for C lib (no printing)
-Errors parseArgs(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * defaultValues[]){
-    return parseArgsBase(argc, argv, flagMap, paramMap, defaultValues, false);
+Errors parseArgs(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * defaultValues_ptr[]){
+    return parseArgsBase(argc, argv, flagMap, paramMap, defaultValues_ptr, false);
 }
 // define function to parse args for sh (print)
 Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap){
-    const char ** defaultValues = NULL;
+    const char ** defaultValues_ptr = NULL;
     // TODO should we just use bools for the print stuff?
-    Errors err = parseArgsBase(argc, argv, flagMap, paramMap, &defaultValues, true);
-    free(defaultValues);
+    Errors err = parseArgsBase(argc, argv, flagMap, paramMap, &defaultValues_ptr, true);
+    free(defaultValues_ptr);
     return err;
 }
 

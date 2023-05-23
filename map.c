@@ -16,14 +16,21 @@ void initMap(map_t * map){
     memset(map, 0, sizeof *map);
 }
 
-MapNode * initNodeVals(MapNode * node, const void * data, DataType type, int len){
+MapNode * initNodeVals(MapNode * node, const void * data, DataType type, int len, bool setDefault){
     //// create node for this data, set data to data, next to null
     //MapNode * node = (MapNode *) calloc(1, sizeof (MapNode));
     node->data.ptr = data;
     node->data.type = type;
     node->data.required = false;        // default to optional cause thats pretty likely
-    node->data.negation = NULL;         // default to no negation
-    node->data.defaultData = NULL;      // default the default to NULL (would default to this data but it would change and I dont want to waste allocating data if not necessary
+    node->data.negations = NULL;        // default to no negations
+    if(setDefault){
+        // if setDefault then set this data as the default
+        node->data.defaultData = (ArgData *) calloc(1, sizeof (ArgData));
+        node->data.defaultData->ptr = data;
+        node->data.defaultData->type = type;
+    }else{
+        node->data.defaultData = NULL; // default the default to NULL
+    }
 
     node->next = NULL;
     node->namesLen = 0;
@@ -35,7 +42,7 @@ MapNode * initNodeVals(MapNode * node, const void * data, DataType type, int len
 // TODO there is an issue where you could use the same name to add new values but it would jut add them over top and keep the old values which would be very confusin when popping and tuff
 // add arbitrary number of keys to map to a data ptr
 // TODO should this take an ArgData for the data arg
-MapNode * addMapMembers(map_t * map, void * data, DataType type, const char fmt[], ...){
+MapNode * addMapMembers(map_t * map, void * data, DataType type, bool setDefault, const char fmt[], ...){
     va_list args;
     va_start(args, fmt);
     // key and len args for str (stringview same)
@@ -45,7 +52,7 @@ MapNode * addMapMembers(map_t * map, void * data, DataType type, const char fmt[
 
     // create node for this data, set data to data, next to null
     MapNode * node = (MapNode *) calloc(1, sizeof (MapNode));
-    initNodeVals(node, data, type, strlen(fmt));
+    initNodeVals(node, data, type, strlen(fmt), setDefault);
 
     // loop over items in format to figure out what the keys are
     // format d/i for int len, s for char * str, S for string view
@@ -83,17 +90,17 @@ MapNode * addMapMembers(map_t * map, void * data, DataType type, const char fmt[
 }
 
 // add arbitrary number of keys to map to a data ptr
-MapNode * addMapMembers_fromList(map_t * map, void * data, DataType type, llist_t * head, int numKeys){
+MapNode * addMapMembers_fromList(map_t * map, void * data, DataType type, sllist_t * head, int numKeys, bool setDefault){
     // key and len args for str (stringview same)
     bool addedMember = false;
     int ind = 0;
 
     // create node for this data, set data to data, next to null
     MapNode * node = (MapNode *) calloc(1, sizeof (MapNode));
-    initNodeVals(node, data, type, numKeys);
+    initNodeVals(node, data, type, numKeys, setDefault);
 
     // loop over the llist, adding each key to this node
-    for(llist_t * keyNode = head; ind < numKeys && keyNode != NULL; keyNode = keyNode->next){
+    for(sllist_t * keyNode = head; ind < numKeys && keyNode != NULL; keyNode = keyNode->next){
         addedMember |= addMapKey(map, node, keyNode->sv, &ind);
     }
     if(!addedMember){
@@ -316,6 +323,11 @@ void freeMap(map_t * map){
             free(node->names);
             free(node->nameLens);
             free(node->data.defaultData);
+            for(mnllist_t * mnlNode = node->data.negations; mnlNode != NULL; ){
+                mnllist_t * n = mnlNode->next;
+                free(mnlNode);
+                mnlNode = n;
+            }
             free(node);
         }
     }

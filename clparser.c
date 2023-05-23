@@ -22,7 +22,6 @@
 //  also lists arent really a thing in posix shell so i dont know what id expand them to
 //  using argparse in python lists are done with separate arguments so that might be a better way if i actually had a use for lists
 // TODO maybe make option to not override $@
-// TODO allow setting values like --key=value and maybe even -kvalue (but probably not, thats really inconsistent especially since i allow flags and params to have the same letters)
 
 
 
@@ -95,7 +94,7 @@ int main(int argc, const char * const argv[]){
     // ferr is a pointer to the char after the ; ending the flags or whatever error happened
     char * ce = cbuf + len;
     // find all flag params, make the default value "0" (false)
-    char * ferr = linkParams(cbuf, &flagMap, "flags:", (void *)&flagFalse, BOOL);
+    char * ferr = parseArgSpec(cbuf, &flagMap, "flags:", (void *)&flagFalse, BOOL, false);
     //printMap(&flagMap);
 
     //addMapMembers(&flagMap, (void *)&flagFalse, BOOL, "sdsd", "help", 4, "h", 1);
@@ -103,7 +102,9 @@ int main(int argc, const char * const argv[]){
     // TODO dont error yet, not finding is only bad if we find neither
     // if the ferr is before or after the buff then we know theres no flags
     bool noflag = false;
-    if(ferr == NULL || ferr <= cbuf || ferr > ce){
+    if(ferr == NULL){
+        return 2;
+    } else if(ferr <= cbuf || ferr > ce){
         noflag = true;
     }
     char * pcbuf;
@@ -115,10 +116,14 @@ int main(int argc, const char * const argv[]){
 
     // puts("params now");
     //char * perr = linkParams(pcbuf, &paramHead, "parameters:");
-    char * perr = linkParams(pcbuf, &paramMap, "parameters:", NULL, STR);
+    char * perr = parseArgSpec(pcbuf, &paramMap, "parameters:", NULL, STR, true);
     //printMap(&paramMap);
     // if didnt find params and no flag then return 1 this is bad
-    if((perr == NULL || perr <= cbuf || perr > ce) && noflag){
+    if(perr == NULL){
+        // if params errored on parsing then exit
+        // TODO print error message
+        return 2;
+    } else if((perr <= cbuf || perr > ce) && noflag){
         // TODO figure out error
         fprintf(stderr, "ill figure this error out later\n");
         return 3;
@@ -126,6 +131,10 @@ int main(int argc, const char * const argv[]){
 
     Errors retVal = parseArgsPrint(argc, argv, &flagMap, &paramMap);
     // TODO do some stuffs and figure out the errors
+    //  - probably exit with this exit code specifically
+    //if(retVal != Success){
+    //    fprintf(stderr, "error parsing args: %d\n", retVal);
+    //}
 
     //bool help = getMapMember_bool(&flagMap, "help", 4);
     MapNode * helpNode = getMapNode(&flagMap, "help", 4);
