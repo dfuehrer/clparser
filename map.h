@@ -78,8 +78,8 @@ void initMap(map_t * map);
 // fmt is a "format string" that specifies what types the variadic keys are
 // %S is a StringView, %s is a char[] for the key, %d or %i is an int for the string length
 // length must follow a string, otherwise it will error
-MapNode * addMapMembers(map_t * map, void * data, DataType type, bool setDefault, const char fmt[], ...);
-MapNode * addMapMembers_fromList(map_t * map, void * data, DataType type, sllist_t * head, int numKeys, bool setDefault);
+MapNode * addMapMembers(map_t * map, const void * data, DataType type, bool setDefault, const char fmt[], ...);
+MapNode * addMapMembers_fromList(map_t * map, const void * data, DataType type, sllist_t * head, int numKeys, bool setDefault);
 
 // TODO add check for if key in map
 const void * setMapMemberData(map_t * map, const void * data, const char * key, int len);
@@ -91,6 +91,8 @@ int  getMapMember_int (map_t * map, const char * key, int len);
 bool getMapMember_bool(map_t * map, const char * key, int len);
 char getMapMember_char(map_t * map, const char * key, int len);
 
+void setNodeNegation(MapNode * node, MapNode * negative);
+
 //void delMembers(map_t map, ...);
 void freeMap(map_t * map);
 
@@ -99,9 +101,9 @@ MapNode * popMapNode(map_t * map, const MapNode * refNode);
 void printMap(map_t * map);
 int printArgData(const ArgData * data, FILE * file);
 
-typedef int (*MapIterFunc_t)(map_t *, MapNode *);
-void iterMap      (map_t * map, MapIterFunc_t mapIterFunc);
-void iterMapSingle(map_t * map, MapIterFunc_t mapIterFunc);
+typedef int (*MapIterFunc_t)(map_t *, MapNode *, void *);
+void iterMap      (map_t * map, MapIterFunc_t mapIterFunc, void * funcInput);
+void iterMapSingle(map_t * map, MapIterFunc_t mapIterFunc, void * funcInput);
 
 
 

@@ -1,9 +1,9 @@
-#!/bin/sh
+#!/usr/bin/env sh
 make || exit
 args='flags: f,flag=-g=-h g=-h=-qwerty qwerty=-flag=-h=-g h,help; parameters: q,asdf u=defval nothing zzz,z,Z=someth;'
 # print out the raw output
 echo raw output:
-vars="$(echo "$args" | ./clparser "$@")"
+vars="$(echo "$args" | ./clparser -- "$@")"
 ec=$?
 echo "$vars"
 if [ "$ec" -ne 0 ]; then

@@ -1,9 +1,10 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
-//#include <ctype.h>
-//#include <stdlib.h>
+#include <unistd.h>
 #include "process.h"
 
+#define MAX_SHELL_LEN   10
 
 // TODO clean up the new section and put it in a function thing
 // TODO prolly add in lists by separating by commas or something
@@ -57,16 +58,87 @@
 //  that could work like echo "$spec" | parser --args-for-parser -- "$@"
 //  in this case the arguments after -- are what needs to be parsed which makes the -- necessary (could make it something like -p or --parse instead of just --)
 //  (could have it assume to parse everything if there is no -- but that could be confusing if someone passes in a -- that wasnt exected and things are parsed wrong or it errors cause thats how that works)
-// im not sure which is more elegant, i think the first one but the problem is that makes me have to rewrite stuffs and makes it so i work with 2 big strings rather that a big string and an array
 // if it hits a -- with no word after it should take that to mean everything after is default since that seems to be how most things would use it (this is less flexible in some ways but i dont want to deal with it)
 // ive decided this needs a help system so probably that would be like giving one of the names and then the help for it in a big string and then passing that string into the parser with a like --helpmsgs
 // this thing needs a help and other arguments in general probably
 int main(int argc, const char * const argv[]){
-    // this is just for debugging
-    // for(int i = 0; i < argc; i++){
-    //     //printf("%s\n", argv[i]);
-    //     puts(argv[i]);
-    // }
+
+    // setup internal flags and params maps
+    map_t flagMap_loc, paramMap_loc;
+    const char ** passedArgs = NULL;
+    int passedArgc;
+    initMap(&flagMap_loc);
+    initMap(&paramMap_loc);
+    // TODO actually hook these up
+    MapNode * helpNode         = addMapMembers(&flagMap_loc , &flagFalse, BOOL, false, "sdsd"  , "help"         , 4 , "h", 1);
+    MapNode * maintainArgvNode = addMapMembers(&flagMap_loc , &flagFalse, BOOL, false, "sdsd"  , "maintain-argv", 13, "a", 1);
+    MapNode * overrideArgvNode = addMapMembers(&flagMap_loc , &flagFalse, BOOL, false, "sdsd"  , "override-argv", 13, "A", 1);
+    MapNode * shellNode        = addMapMembers(&paramMap_loc, "default" , STR , true , "sdsdsd", "shell"        , 5 , "S", 1, "s", 1);
+    MapNode * helpMsgNode      = addMapMembers(&paramMap_loc, NULL      , STR , false, "sdsdsd", "help-msg"     , 8 , "H", 1, "m", 1);
+    setNodeNegation(maintainArgvNode, overrideArgvNode);
+    setNodeNegation(overrideArgvNode, maintainArgvNode);
+    helpMsgNode->data.required = false;     // this isnt really super required
+
+    Errors retVal = parseArgs(argc - 1, argv + 1, &flagMap_loc, &paramMap_loc, &passedArgs);
+    if(retVal != Success){
+        fprintf(stderr, "error parsing args: %d\n", retVal);
+        return retVal;
+    }
+
+    // set the default value for the shell if not given
+    const char * shellStr = shellNode->data.ptr;
+    char parentCommandStr[MAX_SHELL_LEN] = "";
+    if(strcmp(shellStr, "default") == 0){
+        pid_t ppid = getppid();
+        // TODO figure out a general way of getting the calling process name
+        char * pcmdFilename = NULL;
+        asprintf(&pcmdFilename, "/proc/%d/comm", ppid);
+        FILE * pcmdFile = fopen(pcmdFilename, "r");
+        free(pcmdFilename);
+        fgets(parentCommandStr, MAX_SHELL_LEN, pcmdFile);
+        int comlen = strlen(parentCommandStr);
+        if( parentCommandStr[comlen-1] == '\n'){
+            parentCommandStr[comlen-1] =  '\000';
+        }
+        // TODO xonsh seems to be more of a pain (at least with the appimage)
+        shellStr = parentCommandStr;
+        shellNode->data.defaultData->ptr = shellStr;
+    }
+
+    if(*(const bool *)helpNode->data.ptr){
+        printUsage(&flagMap_loc, &paramMap_loc, argv[0]);
+        // TODO add explanation of what clparser is
+        printHelp(&flagMap_loc, &paramMap_loc, "help,maintain-argv,override-argv,shell,help-msg",
+                "print this help message",
+                "do not override argv",
+                "do     override argv",
+                "which shell syntax to use (sh, bash, zsh, ksh, csh, fish, xonsh) (default to calling shell)",
+                "some sort of string of help messages for args");
+        return 1;
+    }
+
+    for(passedArgc = 0; passedArgs[passedArgc] != NULL && passedArgc <= argc; ++passedArgc);
+
+    Shell shell;
+    if      (strcmp(shellStr,    "sh") == 0 || strcmp(shellStr, "dash") == 0){
+        shell = SH;
+    }else if(strcmp(shellStr,  "bash") == 0){
+        shell = BASH;
+    }else if(strcmp(shellStr,   "zsh") == 0){
+        shell = ZSH;
+    }else if(strcmp(shellStr,   "ksh") == 0){
+        shell = KSH;
+    }else if(strcmp(shellStr, " tcsh") == 0 || strcmp(shellStr, "csh") == 0){
+        shell = CSH;
+    }else if(strcmp(shellStr,  "fish") == 0){
+        shell = FISH;
+    }else if(strcmp(shellStr, "xonsh") == 0){
+        shell = XONSH;
+    }
+
+    // free the maps, should be done with the info now
+    freeMap(&flagMap_loc);
+    freeMap(&paramMap_loc);
 
     char * cbuf = NULL;
     size_t n = 0;
@@ -125,7 +197,7 @@ int main(int argc, const char * const argv[]){
         return 2;
     }
 
-    Errors retVal = parseArgsPrint(argc, argv, &flagMap, &paramMap);
+    retVal = parseArgsPrint(passedArgc, passedArgs, &flagMap, &paramMap, shell);
     // TODO do some stuffs and figure out the errors
     //  - probably exit with this exit code specifically
     //if(retVal != Success){
@@ -133,7 +205,7 @@ int main(int argc, const char * const argv[]){
     //}
 
     //bool help = getMapMember_bool(&flagMap, "help", 4);
-    MapNode * helpNode = getMapNode(&flagMap, "help", 4);
+    helpNode = getMapNode(&flagMap, "help", 4);
     // TODO figure out whether we should do this
     if(helpNode != NULL && *(const bool *)helpNode->data.ptr){
     //if(hasNode(&flagMap, "help", 4) && getMapMember_bool(&flagMap, "help", 4)){
@@ -145,7 +217,6 @@ int main(int argc, const char * const argv[]){
         return 1;
     }
 
-    // TODO make a freeing function to free data
     freeMap(&flagMap);
     freeMap(&paramMap);
 

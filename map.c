@@ -21,7 +21,7 @@ MapNode * initNodeVals(MapNode * node, const void * data, DataType type, int len
     //MapNode * node = (MapNode *) calloc(1, sizeof (MapNode));
     node->data.ptr = data;
     node->data.type = type;
-    node->data.required = false;        // default to optional cause thats pretty likely
+    node->data.required = !setDefault && type != BOOL;  // default to optional if set default or BOOLean type
     node->data.negations = NULL;        // default to no negations
     if(setDefault){
         // if setDefault then set this data as the default
@@ -42,7 +42,7 @@ MapNode * initNodeVals(MapNode * node, const void * data, DataType type, int len
 // TODO there is an issue where you could use the same name to add new values but it would jut add them over top and keep the old values which would be very confusin when popping and tuff
 // add arbitrary number of keys to map to a data ptr
 // TODO should this take an ArgData for the data arg
-MapNode * addMapMembers(map_t * map, void * data, DataType type, bool setDefault, const char fmt[], ...){
+MapNode * addMapMembers(map_t * map, const void * data, DataType type, bool setDefault, const char fmt[], ...){
     va_list args;
     va_start(args, fmt);
     // key and len args for str (stringview same)
@@ -90,7 +90,7 @@ MapNode * addMapMembers(map_t * map, void * data, DataType type, bool setDefault
 }
 
 // add arbitrary number of keys to map to a data ptr
-MapNode * addMapMembers_fromList(map_t * map, void * data, DataType type, sllist_t * head, int numKeys, bool setDefault){
+MapNode * addMapMembers_fromList(map_t * map, const void * data, DataType type, sllist_t * head, int numKeys, bool setDefault){
     // key and len args for str (stringview same)
     bool addedMember = false;
     int ind = 0;
@@ -211,6 +211,13 @@ bool getMapMember_bool(map_t * map, const char * key, int len){
     return data;
 }
 
+void setNodeNegation(MapNode * node, MapNode * negative){
+    mnllist_t * mnlNode = (mnllist_t *) malloc(sizeof (mnllist_t));
+    mnlNode->node = node;
+    mnlNode->next = negative->data.negations;
+    negative->data.negations = mnlNode;
+}
+
 int printArgData(const ArgData * data, FILE * file){
     if(data->ptr == NULL){
         return 0;
@@ -245,7 +252,7 @@ void printMap(map_t * map){
     }
 }
 
-void iterMap(map_t * map, MapIterFunc_t mapIterFunc){
+void iterMap(map_t * map, MapIterFunc_t mapIterFunc, void * funcInput){
     if(map == NULL || map->len == 0){
         return;
     }
@@ -254,14 +261,14 @@ void iterMap(map_t * map, MapIterFunc_t mapIterFunc){
     for(int i = 0; i < MAP_ARR_LEN; ++i){
         for(MapNode * node = map->ptrArray[i]; node != NULL; node = node->next){
             ++count;
-            mapIterFunc(map, node);
+            mapIterFunc(map, node, funcInput);
         }
         if(count == map->len){
             break;
         }
     }
 }
-void iterMapSingle(map_t * map, MapIterFunc_t mapIterFunc){
+void iterMapSingle(map_t * map, MapIterFunc_t mapIterFunc, void * funcInput){
     if(map == NULL || map->len == 0){
         return;
     }
@@ -285,7 +292,7 @@ void iterMapSingle(map_t * map, MapIterFunc_t mapIterFunc){
                 continue;
             }
             node_ptrs[ptrsLen++] = node;
-            mapIterFunc(map, node);
+            mapIterFunc(map, node, funcInput);
         }
         if(count == map->len){
             break;

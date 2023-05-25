@@ -149,12 +149,8 @@ char * parseArgSpec(char * buf, map_t * map, char argType[], void * defaultValue
             fprintf(stderr, "could not find '%.*s' defined for negation for %.*s\n", node->sv.len, node->sv.str, node->origNode->nameLens[0], node->origNode->names[0]);
             return NULL;
         }
-        //node->origNode->data.negation = negMapNode;
         // add negation node negation to this node's list so the negation node will negate this node
-        mnllist_t * mnlNode = (mnllist_t *) malloc(sizeof (mnllist_t));
-        mnlNode->node = node->origNode;
-        mnlNode->next = negMapNode->data.negations;
-        negMapNode->data.negations = mnlNode;
+        setNodeNegation(node->origNode, negMapNode);
 
         free(node);
         node = n;
@@ -192,12 +188,111 @@ State setState(char * c){
     return state;
 }
 
+typedef struct {
+    Shell shell;
+    char * arrayName;
+} PrintValueData;
 
+int printInitAssocArr(const char * arrayName, Shell shell){
+    const char * fmt = "";
+    switch(shell){
+        case XONSH:
+            fmt = "%s = {}\n";
+            break;
+        case BASH:
+        case ZSH:
+        case KSH:
+            fmt = "declare -A %s\n";
+            break;
+        case SH:
+        case CSH:
+        case FISH:
+        default:
+            break;
+    }
+    return printf(fmt, arrayName);
+}
 
-// print out values of a key in the map in POSIX sh syntax
-//void printKeyValues(const map_t * map, const char * key, int len){
-//    MapNode * node = getMapNode(map, key, len);
-int printKeyValues(const MapNode * node){
+int printShellVar(const char * key, int keylen, const char * arrayName, const ArgData * data, Shell shell){
+    int len = 0;
+    char * pre, * post;
+    const char * pre_fmt;
+    const char * post_fmt;
+    if(arrayName == NULL){
+        arrayName = "";
+    }
+    post_fmt = "%s\n";
+    pre = post = "";
+    switch(data->type){
+        // TODO maybe make sure the strings are ' escaped
+        case STR:
+        case STRING_VIEW:
+        case CHAR:
+            pre = post = "'";
+            break;
+        case INT:
+            // INT case: using command line argv
+            switch(shell){
+                case FISH:
+                    pre  = "$argv[";
+                    post = "]";
+                    break;
+                case XONSH:
+                    // apparently in xonsh args are $ARG1 for the first arg ($ARGS[1] only available in python mode)
+                    pre  = "$ARG";
+                    break;
+                // TODO check that all of these match this syntax
+                // sh and normal shells use "${1}" ({} necessary for args > 1 digit)
+                case SH:
+                case BASH:
+                case ZSH:
+                case KSH:
+                case CSH:
+                default:
+                    pre  = "\"${";
+                    post = "}\"";
+                    break;
+            }
+            break;
+        default:
+            break;
+    }
+    // in sh, csh, and fish, there are no associative arrays, so just set variables
+    switch(shell){
+        case CSH:
+        case FISH:
+            // TODO fish needs different prefixes i think
+            arrayName = "";
+            pre_fmt = "set %s%.*s=%s";
+            break;
+        case BASH:
+        case ZSH:
+        case KSH:
+        case XONSH:     // XONSH is not like the other shells, but this is still valid syntax for setting values in a python dict
+            pre_fmt = "%s[%.*s]=%s";
+            break;
+        case SH:
+        default:
+            arrayName = "";
+            pre_fmt = "%s%.*s=%s";
+            break;
+    }
+    // pre_fmt has format for array name, key len, key, the value prefix
+    len += printf(pre_fmt, arrayName, keylen, key, pre);
+    if(shell == XONSH && data->type == BOOL){
+        // handle xonsh bool separately since it has to be capitalized
+        len += printf("%s", (*(bool *) data->ptr) ? "True\0" : "False");
+    }else{
+        len += printArgData(data, stdout);
+    }
+    // post_fmt has format for the value postfix (after value written)
+    len += printf(post_fmt, post);
+    return len;
+}
+
+// print out values of a key in the map in shell syntax
+// TODO add array name and shell args
+int printKeyValues(const MapNode * node, const char * arrayName, Shell shell){
     int len = 0;
     for(int i = 0; i < node->namesLen; ++i){
         const char * str = node->names[i];
@@ -219,23 +314,9 @@ int printKeyValues(const MapNode * node){
         //  - csh should be easy, same as POSIX sh but `set var val`, no fancy features
         //  - probably dont care at all about fish or conch but they exist maybe
         //      - i guess ksh exists too or something
-        char * pre, * post;
-        switch(node->data.type){
-            // TODO maybe make sure the strings are ' escaped
-            case STR:
-            case STRING_VIEW:
-            case BOOL:
-            case CHAR:
-                pre = post = "'";
-                break;
-            case INT:
-                pre = "\"${";
-                post = "}\"";
-                break;
-        }
-        printf("%.*s=%s", node->nameLens[i], str, pre);
-        printArgData(&node->data, stdout);
-        printf("%s\n", post);
+        // TODO get the shell from an arg
+        //  - itd be cool to get this from the calling process rather than a command line input (or default that could be overridden)
+        len += printShellVar(str, node->nameLens[i], arrayName, &node->data, shell);
         // TODO maybe handle this str so we dont free it multiple times in a loop
         if(tmpstr != NULL){
             // if created tmp str to replace - then free it
@@ -245,17 +326,36 @@ int printKeyValues(const MapNode * node){
     return len;
 }
 
+int printInitArgv(Shell shell){
+    const char * argv = "";
+    switch(shell){
+        case SH:
+        case BASH:
+        case ZSH:
+        case KSH:
+            argv = "set --";
+        case FISH:
+            argv = "set argv";
+        case XONSH:
+            argv = "$ARGS = [";
+        case CSH:
+            argv = "set argv=";
+    }
+    return printf("%s", argv);
+}
 
-int printKeyValuesWrapper(map_t * map, MapNode * node){
+
+int printKeyValuesWrapper(map_t * map, MapNode * node, void * input){
+    PrintValueData * printInput = input;
     if(node->data.ptr != NULL){
-        return printKeyValues(node);
+        return printKeyValues(node, printInput->arrayName, printInput->shell);
     //}else if(node->data.type == INT){
     //    free(node->data.ptr);
     //    node->data.ptr = NULL;
     }
     return 0;
 }
-int freeNodeInts(map_t * map, MapNode * node){
+int freeNodeInts(map_t * map, MapNode * node, void * input){
     if(node->data.ptr != NULL && node->data.type == INT){
         free((void *)node->data.ptr);
         node->data.ptr = NULL;
@@ -263,17 +363,18 @@ int freeNodeInts(map_t * map, MapNode * node){
     return 0;
 }
 
-Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * defaultValues_ptr[], bool print){
+Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * defaultValues_ptr[], bool print, Shell shell){
 
     // defaultValues_ptr is a 
     // TODO maybe try to accomodate if defaultValues_ptr is NULL
-    *defaultValues_ptr = (const char **) calloc((argc), sizeof (const char *));
-    memset(*defaultValues_ptr, (long) NULL, argc);
+    *defaultValues_ptr = (const char **) calloc((argc+1), sizeof (const char *));
+    memset(*defaultValues_ptr, (long) NULL, argc+1);
     const char ** thisDef = *defaultValues_ptr;
 
     bool checkFlags;
 
-    for(int i = 1; i < argc; ++i){
+    //for(int i = 1; i < argc; ++i){
+    for(int i = 0; i < argc; ++i){
         checkFlags = true;
         // if arg starts with - then its a single letter / word param
         if(argv[i][0] == '-'){
@@ -296,7 +397,7 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                             if(print){
                                 // set node value to this argv ind to use for $i var
                                 int * varnum = (int *) calloc(1, sizeof (int));
-                                *varnum = i;
+                                *varnum = i + 1;
                                 node->data.ptr  = varnum;
                                 node->data.type = INT;
                             }else{
@@ -378,7 +479,7 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                             if(val == argv[i]){
                                 // set node value to this argv ind to use for $i var
                                 int * varnum = (int *) calloc(1, sizeof (int));
-                                *varnum = i;
+                                *varnum = i + 1;
                                 node->data.ptr  = varnum;
                                 node->data.type = INT;
                             }else{
@@ -431,13 +532,20 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
     // now print out the values without parameters (defaults)
     if(print){
         // print out all values
-        iterMapSingle(flagMap,  printKeyValuesWrapper);
-        iterMapSingle(paramMap, printKeyValuesWrapper);
+        PrintValueData printInput;
+        printInput.shell     = shell;
+        printInput.arrayName = "flags";
+        printInitAssocArr(printInput.arrayName, shell);
+        iterMapSingle(flagMap,  printKeyValuesWrapper, &printInput);
+        printInput.arrayName = "params";
+        printInitAssocArr(printInput.arrayName, shell);
+        iterMapSingle(paramMap, printKeyValuesWrapper, &printInput);
         // free the ints now
-        iterMapSingle(paramMap, freeNodeInts);
+        iterMapSingle(paramMap, freeNodeInts, NULL);
 
         // TODO have an option to not lose the optional args
         // TODO have this use something that defines the shell syntax
+        //  - NOTE for this, it should use builtin syntax
         printf("set --");
         //printf("defaults='%s", *defaultValues_ptr[0]);
         int i = 1;
@@ -445,7 +553,7 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
             //printf(" '%s'", *thisDef);
             // find index of this string for printing out var to use
             for( ; i < argc && *thisDef != argv[i]; ++i);
-            printf(" \"${%d}\"", i);
+            printf(" \"${%d}\"", i+1);
             //printf(" %s", *thisDef);
         }
         printf("\n");
@@ -458,13 +566,13 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
 
 // define function to parse args for C lib (no printing)
 Errors parseArgs(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * defaultValues_ptr[]){
-    return parseArgsBase(argc, argv, flagMap, paramMap, defaultValues_ptr, false);
+    return parseArgsBase(argc, argv, flagMap, paramMap, defaultValues_ptr, false, SH);
 }
 // define function to parse args for sh (print)
-Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap){
+Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, Shell shell){
     const char ** defaultValues_ptr = NULL;
     // TODO should we just use bools for the print stuff?
-    Errors err = parseArgsBase(argc, argv, flagMap, paramMap, &defaultValues_ptr, true);
+    Errors err = parseArgsBase(argc, argv, flagMap, paramMap, &defaultValues_ptr, true, shell);
     free(defaultValues_ptr);
     return err;
 }
@@ -482,7 +590,7 @@ int printFlags(MapNode * node, FILE * file){
     len += fprintf(file, "]");
     return len;
 }
-int printFlagsWrapper(map_t * map, MapNode * node){
+int printFlagsWrapper(map_t * map, MapNode * node, void * input){
     return printFlags(node, stderr);
 }
 
@@ -511,17 +619,21 @@ int printParams(MapNode * node, FILE * file, bool optional){
     }
     return len;
 }
-int printParamsWrapper(map_t * map, MapNode * node){
-    return printParams(node, stderr, true);
+int printParamsWrapper(map_t * map, MapNode * node, void * input){
+    return printParams(node, stderr, !node->data.required);
 }
 
 void printUsage(map_t * flagMap, map_t * paramMap, const char * progname){
     fprintf(stderr, "Usage:\t%s", progname);
-    iterMapSingle(flagMap, printFlagsWrapper);
-    iterMapSingle(paramMap, printParamsWrapper);
+    iterMapSingle(flagMap , printFlagsWrapper, NULL);
+    iterMapSingle(paramMap, printParamsWrapper, NULL);
     fprintf(stderr, "\n");
 }
 
+// TODO instead of making this use a format string and variadic arguments, probably take in an array or llist or string to parse of args
+//  - string to parse would kinda be the easiest interface, but harder to work with because of the parsing (should make sure to ignore whitespace so users can make it multi-line)
+//  - array would be a little more difficult to work with for clparser command line use (would need to parse first and then turn to array) but not too bad for C lib, and easy to parse probably
+//  - llist would be maybe easier to create in parsing but suck for C lib use so thats a bad option
 void printHelp(map_t * flagMap, map_t * paramMap, char fmt[], ...){
     char * key = fmt;
     char * commaPos;

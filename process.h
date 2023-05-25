@@ -20,6 +20,17 @@ typedef enum Errors_t {
     DidNotFind,
 } Errors;
 
+// TODO are there any other shells i should try to support?
+typedef enum {
+    SH,
+    BASH,
+    ZSH,
+    KSH,
+    CSH,
+    FISH,
+    XONSH,
+} Shell;
+
 // TODO rename this function
 char * parseArgSpec(char * buf, map_t * map, char argType[], void * defaultValue, DataType defaultType, bool allowDefaults);
 
@@ -27,8 +38,8 @@ State setState(char * c);
 
 
 Errors parseArgs(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * defaultValues_ptr[]);
-Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap);
-Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * defaultValues_ptr[], bool print);
+Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, Shell shell);
+Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * defaultValues_ptr[], bool print, Shell shell);
 
 void printUsage(map_t * flagMap, map_t * paramMap, const char * progname);
 void printHelp (map_t * flagMap, map_t * paramMap, char fmt[], ...);
