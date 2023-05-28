@@ -1,0 +1,35 @@
+#!/usr/bin/env xonsh
+
+# NOTE if youre actually using this as reference, please just use argparse, its much better, more complete, less hacky, and actually python
+
+echo $ARGS
+
+# TODO figure out how to get exiting working
+make or exit(1)
+spec = 'flags: f,flag=-g=-h g=-h=-qwerty qwerty=-flag=-h=-g h,help; parameters: q,asdf u=defval nothing zzz,z,Z=someth;'
+print(spec)
+# print out the raw output
+echo raw output:
+vars = !(echo @(spec) | ./clparser -s xonsh -- @($ARGS[1:]))
+ec = vars.returncode
+vars = vars.output
+print(vars)
+if ec != 0:
+    print(f'exit code: {ec}')
+    exit(ec)
+# actually run it and show results
+echo 'variable results:'
+#$XONSH_SHOW_TRACEBACK = True
+# execx isn't really documented well, so its annoying that they changed the name of the globals keyword
+execx(vars, glbs=globals())
+print(f'f,flag  = { flags["flag"]}')
+print(f'g       = { flags["g"]}')
+print(f'qwerty  = { flags["qwerty"]}')
+print(f'h,help  = { flags["help"]}')
+print(f'q,asdf  = {params["asdf"]}')
+print(f'u       = {params["u"]}')
+print(f'nothing = {params["nothing"]}')
+print(f'zzz,z,Z = {params["Z"]}')
+#printf 'default vals: %s\n' $ARGS
+#print(f'default vals: {$ARGS}')
+print(f'default vals: {args}')

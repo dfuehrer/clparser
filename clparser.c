@@ -128,12 +128,19 @@ int main(int argc, const char * const argv[]){
         shell = ZSH;
     }else if(strcmp(shellStr,   "ksh") == 0){
         shell = KSH;
-    }else if(strcmp(shellStr, " tcsh") == 0 || strcmp(shellStr, "csh") == 0){
+    }else if(strcmp(shellStr,  "tcsh") == 0 || strcmp(shellStr, "csh") == 0){
         shell = CSH;
     }else if(strcmp(shellStr,  "fish") == 0){
         shell = FISH;
     }else if(strcmp(shellStr, "xonsh") == 0){
         shell = XONSH;
+    }
+
+    bool useArgv  =  *(const bool *)overrideArgvNode->data.ptr;
+    if( !useArgv && !*(const bool *)maintainArgvNode->data.ptr && shell == SH){
+        // if didnt set override or maintain argv, then default to maintain unless using SH since it has no arrays
+        // so the only way to maintain whitespace is to use argv
+        useArgv = true;
     }
 
     // free the maps, should be done with the info now
@@ -149,15 +156,6 @@ int main(int argc, const char * const argv[]){
     initMap(&flagMap);
     initMap(&paramMap);
 
-    // TODO do something like this (until proper help support is added) if they dont include a -h/--help
-    /* for(char ** argp = argv; argp < argv + argc; argp++){ */
-    /*     if(!(strcmp(*argp, "--help") && strcmp(*argp, "-h"))){ */
-    /*         printf("%s", cbuf); */
-    /*         return 0; */
-    /*     } */
-    /* } */
-
-    // printf("printint things now\n");
     // let me think about what im doing here
     // ferr is a pointer to the char after the ; ending the flags or whatever error happened
     char * ce = cbuf + len;
@@ -197,7 +195,7 @@ int main(int argc, const char * const argv[]){
         return 2;
     }
 
-    retVal = parseArgsPrint(passedArgc, passedArgs, &flagMap, &paramMap, shell);
+    retVal = parseArgsPrint(passedArgc, passedArgs, &flagMap, &paramMap, shell, useArgv);
     // TODO do some stuffs and figure out the errors
     //  - probably exit with this exit code specifically
     //if(retVal != Success){

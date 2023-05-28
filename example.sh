@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
 make || exit
-args='flags: f,flag=-g=-h g=-h=-qwerty qwerty=-flag=-h=-g h,help; parameters: q,asdf u=defval nothing zzz,z,Z=someth;'
+spec='flags: f,flag=-g=-h g=-h=-qwerty qwerty=-flag=-h=-g h,help; parameters: q,asdf u=defval nothing zzz,z,Z=someth;'
 # print out the raw output
 echo raw output:
-vars="$(echo "$args" | ./clparser -- "$@")"
+vars="$(echo "$spec" | ./clparser -- "$@")"
 ec=$?
 echo "$vars"
 if [ "$ec" -ne 0 ]; then
@@ -22,3 +22,4 @@ echo u = "$u"
 echo nothing = "$nothing"
 echo zzz,z,Z = "$Z"
 printf 'default vals: %s\n' "$*"
+#printf 'default vals: %s\n' "$args"

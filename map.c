@@ -273,10 +273,10 @@ void iterMapSingle(map_t * map, MapIterFunc_t mapIterFunc, void * funcInput){
         return;
     }
     // allocating space for whole map in case its needed
-    const MapNode * * node_ptrs = calloc(map->len - 1  , sizeof (const MapNode *));
-    memset(node_ptrs, (long) NULL,      (map->len - 1) * sizeof (const MapNode *));
+    const MapNode * * node_ptrs = calloc(map->len  , sizeof (const MapNode *));
+    memset(node_ptrs, (long) NULL,      (map->len) * sizeof (const MapNode *));
     int ptrsLen = 0;
-    int count;
+    int count = 0;
     // TODO maybe have some way of indicating the first time or something (maybe just pass in i as well)
     for(int i = 0; i < MAP_ARR_LEN; ++i){
         for(MapNode * node = map->ptrArray[i]; node != NULL; node = node->next){
