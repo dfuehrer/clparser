@@ -33,29 +33,29 @@
 // where things that are in the same word separated by commas are the same flag or parameter (if its only 1 char its a single char - else its a -- word)
 // things after flags are flags and the stuff after parameters are the options with values to be set
 // this should return a string like:
-//  flag='false'
-//  f='false'
-//  h='false'
-//  help='false'
-//  g='false'
-//  qwerty='true'
+//  flag=false
+//  f=false
+//  h=false
+//  help=false
+//  g=false
+//  qwerty=true
 //  asdf="${2}"
 //  q="${2}"
 //  Z='test'
 //  zzz='test'
 //  z='test'
 //  u='defval'
-//  nothing="${7}"
-//  set -- "${5}" "${9}" "${10}"
-// if called with arguments `-fgq whatever --qwerty --zzz=test words --nothing else -- --test hi`
-// run it like eval "$(echo "$spec" | parse "$@")" and itll set the variables accordingly so you can use them without doing any parsing
+//  nothing="${8}"
+//  set -- "${4}" "${6}" "${10}" "${11}"
+// if called with arguments `-fgq whatever --qwerty 'i dunno' --zzz=test words --nothing else -- --test hi`
+// run it like eval "$(echo "$spec" | clparser -- "$@")" and itll set the variables accordingly so you can use them without doing any parsing
 // error codes:
 // 1 not alphanumeric flags or parameter
 // 2 flags or parameter not defined
 // 3 bad definitions
 // TODO im considering changing the structure to make it so command line args are possible for this program
 // i need to figure out a way to signal that the arguemnt is just for this parser and not what its working with
-//  that could work like echo "$spec" | parser --args-for-parser -- "$@"
+//  that could work like echo "$spec" | clparser --args-for-parser -- "$@"
 //  in this case the arguments after -- are what needs to be parsed which makes the -- necessary (could make it something like -p or --parse instead of just --)
 //  (could have it assume to parse everything if there is no -- but that could be confusing if someone passes in a -- that wasnt exected and things are parsed wrong or it errors cause thats how that works)
 // if it hits a -- with no word after it should take that to mean everything after is default since that seems to be how most things would use it (this is less flexible in some ways but i dont want to deal with it)

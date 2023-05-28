@@ -30,6 +30,6 @@ print(f'q,asdf  = {params["asdf"]}')
 print(f'u       = {params["u"]}')
 print(f'nothing = {params["nothing"]}')
 print(f'zzz,z,Z = {params["Z"]}')
-#printf 'default vals: %s\n' $ARGS
-#print(f'default vals: {$ARGS}')
-print(f'default vals: {args}')
+#printf 'positional args: %s\n' $ARGS
+#print(f'positional args: {$ARGS}')
+print(f'positional args: {args}')
