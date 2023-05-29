@@ -69,15 +69,15 @@ int main(int argc, const char * const argv[]){
     int passedArgc;
     initMap(&flagMap_loc);
     initMap(&paramMap_loc);
-    // TODO actually hook these up
     MapNode * helpNode         = addMapMembers(&flagMap_loc , &flagFalse, BOOL, false, "sdsd"  , "help"         , 4 , "h", 1);
     MapNode * maintainArgvNode = addMapMembers(&flagMap_loc , &flagFalse, BOOL, false, "sdsd"  , "maintain-argv", 13, "a", 1);
     MapNode * overrideArgvNode = addMapMembers(&flagMap_loc , &flagFalse, BOOL, false, "sdsd"  , "override-argv", 13, "A", 1);
     MapNode * shellNode        = addMapMembers(&paramMap_loc, "default" , STR , true , "sdsdsd", "shell"        , 5 , "S", 1, "s", 1);
     MapNode * helpMsgNode      = addMapMembers(&paramMap_loc, NULL      , STR , false, "sdsdsd", "help-msg"     , 8 , "H", 1, "m", 1);
+    MapNode * progNameNode     = addMapMembers(&paramMap_loc, "default" , STR , true , "sdsd"  , "prog-name"    , 9 , "p", 1);
     setNodeNegation(maintainArgvNode, overrideArgvNode);
     setNodeNegation(overrideArgvNode, maintainArgvNode);
-    helpMsgNode->data.required = false;     // this isnt really super required
+    //helpMsgNode->data.required = false;     // this isnt really super required
 
     Errors retVal = parseArgs(argc - 1, argv + 1, &flagMap_loc, &paramMap_loc, &passedArgs);
     if(retVal != Success){
@@ -86,7 +86,8 @@ int main(int argc, const char * const argv[]){
     }
 
     // set the default value for the shell if not given
-    const char * shellStr = shellNode->data.ptr;
+    const char * shellStr =    shellNode->data.ptr;
+    const char * progName = progNameNode->data.ptr;
     char parentCommandStr[MAX_SHELL_LEN] = "";
     if(strcmp(shellStr, "default") == 0){
         pid_t ppid = getppid();
@@ -104,25 +105,30 @@ int main(int argc, const char * const argv[]){
         shellStr = parentCommandStr;
         shellNode->data.defaultData->ptr = shellStr;
     }
+    if(strcmp(progName, "default") == 0){
+        progName = NULL;
+    }
 
     if(*(const bool *)helpNode->data.ptr){
+        // TODO have the help info not print out to stderr
         printUsage(&flagMap_loc, &paramMap_loc, argv[0]);
-        // TODO add explanation of what clparser is
-        printf("\tclparser takes in command line arguments to parse as command line arguments and a specification\n");
-        printf("\tfor which command line arguments should exist from stdin, and outputs shell code to set variables\n");
-        printf("\tset from the command line arguments to stdout.  Command line arguments to be parsed should be\n");
-        printf("\tgiven after --.  This will prevent the command line arguments to be parsed from being interpreted\n");
-        printf("\tas clparser command line arguments.  See the man page or README.md for more details\n");
-        printHelp(&flagMap_loc, &paramMap_loc, "help,maintain-argv,override-argv,shell,help-msg",
-                "print this help message",
-                "do not override argv",
-                "do     override argv",
-                "which shell syntax to use (sh, bash, zsh, ksh, csh, fish, xonsh) (default to calling shell)",
-                "some sort of string of help messages for args");
+        fprintf(stderr, "\tclparser takes in command line arguments to parse as command line arguments and a specification\n");
+        fprintf(stderr, "\tfor which command line arguments should exist from stdin, and outputs shell code to set variables\n");
+        fprintf(stderr, "\tset from the command line arguments to stdout.  Command line arguments to be parsed should be\n");
+        fprintf(stderr, "\tgiven after --.  This will prevent the command line arguments to be parsed from being interpreted\n");
+        fprintf(stderr, "\tas clparser command line arguments.  See the man page or README.md for more details\n");
+        printHelp(&flagMap_loc, &paramMap_loc,
+                "help          = print this help message\n\
+                 maintain-argv = do not override argv\n\
+                 override-argv = do     override argv\n\
+                 shell         = which shell syntax to use (sh, bash, zsh, ksh, csh, fish, xonsh) (default to calling shell)\n\
+                 help-msg      = some sort of string of help messages for args");
         return 1;
     }
 
     for(passedArgc = 0; passedArgs[passedArgc] != NULL && passedArgc <= argc; ++passedArgc);
+
+    const char * helpMessage = helpMsgNode->data.ptr;
 
     Shell shell;
     if      (strcmp(shellStr,    "sh") == 0 || strcmp(shellStr, "dash") == 0){
@@ -212,12 +218,15 @@ int main(int argc, const char * const argv[]){
     // TODO figure out whether we should do this
     if(helpNode != NULL && *(const bool *)helpNode->data.ptr){
     //if(hasNode(&flagMap, "help", 4) && getMapMember_bool(&flagMap, "help", 4)){
-        printUsage(&flagMap, &paramMap, argv[0]);
-        //printHelp(&flagMap, &paramMap, "help,flag,qwerty,asdf,zzz", "print this help message", "i dunno, doesnt matter", "other message", "something whatever", "i dunno, something optional");
-        // TODO figure out how to get user defined help here
-        printHelp(&flagMap, &paramMap, "help", "print this help message");
+        // TODO get the script name
+        // TODO have the help info not print out to stderr and instead give printf commands 
+        //printf(";\n");
+        printUsageShell(&flagMap, &paramMap, NULL, shell);
+        if(helpMessage != NULL){
+            printHelpShell(&flagMap, &paramMap, helpMessage);
+        }
         //printf("exit");
-        return 1;
+        return 0;
     }
 
     freeMap(&flagMap);

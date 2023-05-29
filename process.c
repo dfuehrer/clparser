@@ -708,7 +708,8 @@ int printFlags(MapNode * node, FILE * file){
     return len;
 }
 int printFlagsWrapper(map_t * map, MapNode * node, void * input){
-    return printFlags(node, stderr);
+    FILE * outFile = (FILE *) input;
+    return printFlags(node, outFile);
 }
 
 int printParams(MapNode * node, FILE * file, bool optional){
@@ -737,48 +738,144 @@ int printParams(MapNode * node, FILE * file, bool optional){
     return len;
 }
 int printParamsWrapper(map_t * map, MapNode * node, void * input){
-    return printParams(node, stderr, !node->data.required);
+    FILE * outFile = (FILE *) input;
+    return printParams(node, outFile, !node->data.required);
 }
 
-void printUsage(map_t * flagMap, map_t * paramMap, const char * progname){
-    fprintf(stderr, "Usage:\t%s", progname);
-    iterMapSingle(flagMap , printFlagsWrapper, NULL);
-    iterMapSingle(paramMap, printParamsWrapper, NULL);
-    fprintf(stderr, "\n");
+int printUsageBase(map_t * flagMap, map_t * paramMap, const char * progname, bool isEvaluated, Shell shell){
+    //FILE * outFile = stderr;
+    FILE * outFile = stdout;
+    int len = 0;
+    if(isEvaluated){
+        len += fprintf(outFile, "printf 'Usage:\\t%%s%%s\\n' ");
+        if(progname == NULL){
+            int argnum = 0;
+            ArgData arg0 = {
+                .ptr=&argnum,
+                .type=INT,
+            };
+            len += printShellValue(&arg0, shell);
+        }else{
+            len += fprintf(outFile, "%s", progname);
+        }
+        len += fprintf(outFile, " '");
+    }else{
+        len += fprintf(outFile, "Usage:\t%s", progname);
+    }
+    len += iterMapSingle(flagMap , printFlagsWrapper , outFile);
+    len += iterMapSingle(paramMap, printParamsWrapper, outFile);
+    if(isEvaluated){
+        len += fprintf(outFile, "'");
+    }
+    len += fprintf(outFile, "\n");
+    return len;
+}
+
+int printUsage(map_t * flagMap, map_t * paramMap, const char * progname){
+    if(progname == NULL){
+        error(3, 0, "Must specify progname for printing usage");
+    }
+    return printUsageBase(flagMap, paramMap, progname, false, SH);
+}
+int printUsageShell(map_t * flagMap, map_t * paramMap, const char * progname, Shell shell){
+    return printUsageBase(flagMap, paramMap, progname, true, shell);
 }
 
 // TODO instead of making this use a format string and variadic arguments, probably take in an array or llist or string to parse of args
 //  - string to parse would kinda be the easiest interface, but harder to work with because of the parsing (should make sure to ignore whitespace so users can make it multi-line)
 //  - array would be a little more difficult to work with for clparser command line use (would need to parse first and then turn to array) but not too bad for C lib, and easy to parse probably
 //  - llist would be maybe easier to create in parsing but suck for C lib use so thats a bad option
-void printHelp(map_t * flagMap, map_t * paramMap, char fmt[], ...){
-    char * key = fmt;
-    char * commaPos;
-    char * helpText;
-    MapNode * node;
-    int printedLen;
-    va_list args;
-    va_start(args, fmt);
-    for(commaPos = strchr(key, ','); ; key = commaPos + 1, commaPos = strchr(key, ',')){
-        if(commaPos == NULL){
-            commaPos = strchr(key, '\000');
+int printHelpBase(map_t * flagMap, map_t * paramMap, const char * helpMessage, bool isEvaluated){
+    //FILE * outFile = stderr;
+    FILE * outFile = stdout;
+    const char * key;
+    const char * msg;
+    const char * lastSpace;
+    int keyLen;
+    int msgLen;
+    int len = 0;
+    bool wasSpace = false;
+    for(const char * c = helpMessage; *c != '\000'; ++c){
+        // skip past leading whitespace
+        for( ; isspace(*c); ++c);
+        if(*c == '\000'){
+            break;
         }
-        helpText = va_arg(args, char *);
-        node = getMapNode(paramMap, key, commaPos - key);
-        if(node != NULL){
-            //bool optional = (strstr(helpText, "optional") != NULL);
-            printedLen = printParams(node, stderr, !node->data.required);
-        }else{
-            node = getMapNode(flagMap, key, commaPos - key);
-            if(node == NULL){
-                error(7, 0, "key '%.*s' does not exist in map", (int) (commaPos - key), key);
+        // get key (next word)
+        key = c;
+        // TODO check for null
+        for( ; !isspace(*c); ++c){
+            if(*c == '\000'){
+                return 0;
             }
-            printedLen = printFlags(node, stderr);
         }
-        fprintf(stderr, "%-*s %s\n", ARG_SPACE - printedLen - 1, "", helpText);
-        if(commaPos[0] == '\000'){
+        keyLen = c - key;
+        // skip past trailing whitespace
+        for( ; isspace(*c); ++c);
+        if(*c != '='){
+            // TODO error
+            return 0;
+        }
+        ++c;
+        // skip past leading whitespace
+        for( ; isspace(*c); ++c);
+        if(*c == '\000'){
+            return 0;
+        }
+        // get msg (from now)
+        msg = c;
+        for( ; *c != '\n' && *c != '\000'; ++c){
+            if(!isspace(*c)){
+                wasSpace = false;
+            }else if(!wasSpace){
+                wasSpace  = true;
+                lastSpace = c;
+            }
+        }
+        if(!wasSpace){
+            lastSpace = c;
+        }
+        msgLen = lastSpace - msg;
+        // get node from key
+        MapNode * node = getMapNode(paramMap, key, keyLen);
+        int printedLen = 0;
+        // print node arg
+        if(node != NULL){
+            if(isEvaluated){
+                // printing this in the if statements so it doesnt start printing somehthing and then just error
+                printf("printf '%%s\\n' '");
+            }
+            //bool optional = (strstr(helpText, "optional") != NULL);
+            printedLen = printParams(node, outFile, !node->data.required);
+        }else{
+            // if didnt find node as param, try finding as flag
+            node = getMapNode(flagMap, key, keyLen);
+            if(node == NULL){
+                error(7, 0, "key '%.*s' does not exist in map", keyLen, key);
+            }
+            if(isEvaluated){
+                printf("printf '%%s\\n' '");
+            }
+            printedLen = printFlags(node, outFile);
+        }
+        // print help message
+        len += printedLen;
+        len += fprintf(outFile, "%-*s %.*s", ARG_SPACE - printedLen - 1, "", msgLen, msg);
+        if(isEvaluated){
+            len += printf("'");
+        }
+        len += printf("\n");
+        if(*c == '\000'){
             break;
         }
     }
-    va_end(args);
+
+    return len;
+}
+
+int printHelp     (map_t * flagMap, map_t * paramMap, const char * helpMessage){
+    return printHelpBase(flagMap, paramMap, helpMessage, false);
+}
+int printHelpShell(map_t * flagMap, map_t * paramMap, const char * helpMessage){
+    return printHelpBase(flagMap, paramMap, helpMessage, true);
 }

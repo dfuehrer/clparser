@@ -102,8 +102,8 @@ void printMap(map_t * map);
 int printArgData(const ArgData * data, FILE * file);
 
 typedef int (*MapIterFunc_t)(map_t *, MapNode *, void *);
-void iterMap      (map_t * map, MapIterFunc_t mapIterFunc, void * funcInput);
-void iterMapSingle(map_t * map, MapIterFunc_t mapIterFunc, void * funcInput);
+int iterMap      (map_t * map, MapIterFunc_t mapIterFunc, void * funcInput);
+int iterMapSingle(map_t * map, MapIterFunc_t mapIterFunc, void * funcInput);
 
 
 

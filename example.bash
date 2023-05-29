@@ -3,9 +3,18 @@
 # NOTE this file can be run with zsh and ksh just fine (clparser uses the same syntax for all 3)
 make || exit
 spec='flags: f,flag=-g=-h g=-h=-qwerty qwerty=-flag=-h=-g h,help; parameters: q,asdf u=defval nothing zzz,z,Z=someth;'
+helpmsg='
+help = print this help message
+flag = a random flag
+g    = i dunno, its nonsense
+qwerty = a keyboard layout
+asdf = q param
+u    = something
+zzz  = a bunch of zs
+'
 # print out the raw output
 echo raw output:
-vars="$(echo "$spec" | ./clparser -- "$@")"
+vars="$(echo "$spec" | ./clparser --help-msg "$helpmsg" -- "$@")"
 ec=$?
 echo "$vars"
 if [ "$ec" -ne 0 ]; then

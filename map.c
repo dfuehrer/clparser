@@ -252,30 +252,33 @@ void printMap(map_t * map){
     }
 }
 
-void iterMap(map_t * map, MapIterFunc_t mapIterFunc, void * funcInput){
+int iterMap(map_t * map, MapIterFunc_t mapIterFunc, void * funcInput){
     if(map == NULL || map->len == 0){
-        return;
+        return 0;
     }
     // TODO maybe have some way of indicating the first time or something (maybe just pass in i as well)
+    int total = 0;
     int count = 0;
     for(int i = 0; i < MAP_ARR_LEN; ++i){
         for(MapNode * node = map->ptrArray[i]; node != NULL; node = node->next){
             ++count;
-            mapIterFunc(map, node, funcInput);
+            total += mapIterFunc(map, node, funcInput);
         }
         if(count == map->len){
             break;
         }
     }
+    return total;
 }
-void iterMapSingle(map_t * map, MapIterFunc_t mapIterFunc, void * funcInput){
+int iterMapSingle(map_t * map, MapIterFunc_t mapIterFunc, void * funcInput){
     if(map == NULL || map->len == 0){
-        return;
+        return 0;
     }
     // allocating space for whole map in case its needed
     const MapNode * * node_ptrs = calloc(map->len  , sizeof (const MapNode *));
     memset(node_ptrs, (long) NULL,      (map->len) * sizeof (const MapNode *));
     int ptrsLen = 0;
+    int total = 0;
     int count = 0;
     // TODO maybe have some way of indicating the first time or something (maybe just pass in i as well)
     for(int i = 0; i < MAP_ARR_LEN; ++i){
@@ -292,13 +295,14 @@ void iterMapSingle(map_t * map, MapIterFunc_t mapIterFunc, void * funcInput){
                 continue;
             }
             node_ptrs[ptrsLen++] = node;
-            mapIterFunc(map, node, funcInput);
+            total += mapIterFunc(map, node, funcInput);
         }
         if(count == map->len){
             break;
         }
     }
     free(node_ptrs);
+    return total;
 }
 
 // internal version of pop node that can check my exact names keys array thing

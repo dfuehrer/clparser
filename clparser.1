@@ -19,6 +19,8 @@ clparser - command line argument parser for shells
 .\" .OP \-S|\-s|\-\-shell shell
 .RB { \-S | \-s | \-\-shell
 .IR shell }
+.RB { \-H | \-m | \-\-help\-msg
+.IR helpmessage }
 .B \-\-
 .RI [ COMMAND_LINE_ARGS
 \&.\|.\|.\&]
@@ -156,14 +158,22 @@ to prevent issues with the shell interpreting whitespace or symbols in the param
 below for an example).
 .
 .SH OPTIONS
+.BR \-h ,
+.B \-\-help
+Print help info to stderr.
+Starts with options showing flags and params in usage for.
+Parameters also include the value for the user to input based on the name of the parameter.
+If parameters have default values, it shows it after an =.
+Under the usage line, it shows lines for each argument with a specified help message (see \-\-help\-msg below).
+.PP
 .BR \-A ,
-.B \-\-override-argv
+.B \-\-override\-argv
 Output positional arguments in place of the shell's argv.
 This may be useful in some cases, but most shells have arrays to put the arguments in.
 This is used by default for `sh` since "$@" is the only way of splitting arguments by argument while maintaining whitespace.
 .PP
 .BR \-a ,
-.B \-\-maintain-argv
+.B \-\-maintain\-argv
 Output positional arguments in a variable named
 .B args
 instead of overriding argv.
@@ -177,6 +187,18 @@ This is not a good option for `sh` since "$@" is the only way of splitting argum
 .I shell
 Specify the shell language syntax to be used.
 By default, the shell will try to choose the shell syntax from the name of the calling process.
+.PP
+.BR \-H ,
+.BR \-m ,
+.B \-\-help\-msg
+.I helpmsgs
+Specify help messages for specified flags/parameters.
+The format is
+.BR "argument = help message" ,
+with argument, message pair per line.
+See the
+.B EXAMPLES
+section below for an example format and output.
 .
 .SH EXIT STATUS
 Exit with success (0) if the arguments and specification are parsed successfully.
@@ -194,6 +216,15 @@ Run
 in POSIX compliant shells using
 .EX sh
 spec='flags: f,flag=-g=-h g=-h=-qwerty qwerty=-flag=-h=-g h,help; parameters: q,asdf u=defval nothing zzz,z,Z=someth;'
+helpmsg='
+help = print this help message
+flag = a random flag
+g    = i dunno, its nonsense
+qwerty = a keyboard layout
+asdf = q param
+u    = something
+zzz  = a bunch of zs
+'
 eval "$(echo "$spec" | clparser -- "$@")"
 .EE
 This will output code that looks like
@@ -222,22 +253,31 @@ For `csh`, call
 .B clparser
 in this format:
 .EX csh
-set args="`seq -f '"\\"\\$"argv[%.0f]"\\""' $#`"
-eval `eval 'echo $spec | ./clparser -- '"$args"`
+eval `echo $spec:q | ./clparser --help-msg $helpmsg:q -- $argv:q`
 .EE
 Note that just using
 .B $argv
-will not preserve whitespace, which will cause bugs.
-Setting
-.B args
-with `seq` creates a string of `"$argv[1]" "$argv[2]" "$argv[3]" .\|.\|.` for each arg.
-The next line will evaluate this to the values (whitespace protected) when calling
+will not preserve whitespace, which will cause bugs, so appending `:q` at the end of variable names is necessary.
 .B clparser
 and evaluate the resulting `csh` code.
 .PP
 See `fish` and `xonsh` example syntax in the github repo example files.
 For `xonsh`, don't bother using this; just use
 .BR argparse .
+.PP
+The
+.B \-\-help
+output will look like
+.EX
+Usage:	"${0}" [ --flag -f ] [ -h --help ] [ -g ] [ --qwerty ] --asdf -q asdf [ -Z --zzz -z zzz = someth ] [ -u u = defval ] --nothing nothing
+ [ -h --help ]                                    print this help message
+ [ --flag -f ]                                    a random flag
+ [ -g ]                                           i dunno, its nonsense
+ [ --qwerty ]                                     a keyboard layout
+ --asdf -q asdf                                   q param
+ [ -u u = defval ]                                something
+ [ -Z --zzz -z zzz = someth ]                     a bunch of zs
+.EE
 .PP
 .B TODO
 add examples of output for `bash` and `csh` and show use for `fish`.
