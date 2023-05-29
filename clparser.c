@@ -108,6 +108,11 @@ int main(int argc, const char * const argv[]){
     if(*(const bool *)helpNode->data.ptr){
         printUsage(&flagMap_loc, &paramMap_loc, argv[0]);
         // TODO add explanation of what clparser is
+        printf("\tclparser takes in command line arguments to parse as command line arguments and a specification\n");
+        printf("\tfor which command line arguments should exist from stdin, and outputs shell code to set variables\n");
+        printf("\tset from the command line arguments to stdout.  Command line arguments to be parsed should be\n");
+        printf("\tgiven after --.  This will prevent the command line arguments to be parsed from being interpreted\n");
+        printf("\tas clparser command line arguments.  See the man page or README.md for more details\n");
         printHelp(&flagMap_loc, &paramMap_loc, "help,maintain-argv,override-argv,shell,help-msg",
                 "print this help message",
                 "do not override argv",

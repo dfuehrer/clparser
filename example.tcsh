@@ -5,9 +5,9 @@ set spec='flags: f,flag=-g=-h g=-h=-qwerty qwerty=-flag=-h=-g h,help; parameters
 # print out the raw output
 echo raw output:
 set args="`seq -f '"\"\$"argv[%.0f]"\""' $#`"
-eval 'echo "'"$spec"'" | ./clparser -- '"$args"
+eval 'echo $spec | ./clparser -- '"$args"
 #set vars=`echo $spec | ./clparser -- $argv[*]`
-set vars=`eval 'echo "'"$spec"'" | ./clparser -- '"$args"`
+set vars=`eval 'echo $spec | ./clparser -- '"$args"`
 set ec=$?
 echo vars len: $#vars
 echo "$vars"

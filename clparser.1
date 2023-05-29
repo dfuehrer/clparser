@@ -1,0 +1,243 @@
+.TH clparser 1 "29 May, 2023"
+.
+.SH NAME
+clparser - command line argument parser for shells
+.
+.SH SYNOPSIS
+.\" .SY clparser
+.\" .RI [ OPTIONS ]
+.\" .B --
+.\" .I COMMAND_LINE_ARGS
+.\" [\&\.\|.\|.\&]
+.\" .YS
+.\" .
+.SY clparser
+.\" .OP \-A|\-\-override-argv
+.RB { \-A | \-\-override-argv }
+.\" .OP \-a|\-\-maintain-argv
+.RB { \-a | \-\-maintain-argv }
+.\" .OP \-S|\-s|\-\-shell shell
+.RB { \-S | \-s | \-\-shell
+.IR shell }
+.B \-\-
+.RI [ COMMAND_LINE_ARGS
+\&.\|.\|.\&]
+.YS
+.
+.SY clparser
+.BR \-\-help | \-h
+.YS
+.
+.SH DESCRIPTION
+.B clparser
+takes in command line arguments to parse as command line arguments and a specification for which command line arguments should exist from stdin, and outputs shell code to set variables set from the command line arguments to stdout.
+Command line arguments to be parsed should be given after
+.BR -- .
+This will prevent the command line arguments to be parsed from being interpreted as
+.B clparser
+command line arguments.
+.
+.SS Argument Specification Format
+The format specifies 
+.I flags
+for setting some optional value to true and
+.I parameters
+for setting some (optional) value to the value passed in the command line arguments.
+Arguments as specified as either flags or parameters by being listed after
+.I flags:
+or
+.IR parameters: .
+Arguments are defined as in a space separated list, ended with a semicolon
+.RI ( ; ).
+E.g.:
+.IR "flags: f help test;" .
+Arguments to be set together are listed together in a comma separated list.
+E.g.:
+.IR "flags: f,flags help,h test,t,T;" .
+.PP
+Parameters can have default values.
+Default values set the value of the parameters if the parameter is not set with the input command line arguments.
+Default values are set by appending an equals
+.RB ( = )
+after the parameters (e.g.:
+.IR line,l=default ).
+.PP
+Flags can specify other flags that would negate its value if both are defined.
+When a flag with a negation is input and its negation flag is input after it, then the output of the first flag will be false because the second value (set to true) negated it.
+E.g.: if
+.B \-i
+has
+.B \-o
+set as a negation flag, then the following input arguments
+.B \-i \-\-param value \-o
+will set set
+.B i
+to false and
+.B o
+to true.
+This can be helpful, especially when users alias a script with arguments that the user might want to override (imagine
+.B \-i
+was set in the alias and
+.B \-\-param value \-o
+was set by the user).
+Negation flags can be set by appending equals minus
+.RB ( =- )
+after flags (e.g.:
+.BR i,in=-out ).
+Multiple negation flags can be given (e.g.:
+.BR i,in=-out=-h ),
+which would reset the value of
+.B i
+if
+.B \-\-out
+or
+.B \-h
+are specified after
+.BR \-i .
+.PP
+For a full example, see the
+.B EXAMPLES
+section below.
+.
+.SS Parsing Features
+There are 2 different types of command line arguments: words and single letters.
+Words are specified after 2 dashes
+.RB ( -- ),
+letters are specified after 1 dash
+.RB ( - ).
+Letters can be combined on the same input (e.g.:
+.BR \-aBc ).
+.PP
+Single letter parameters can be used in the combined format if they are the last letter and the value of the parameter is given as the next argument (e.g.:
+.BR "\-aBc value" ),
+where
+.B c
+is a parameter, and
+.B a
+and
+.B B
+are flags.
+.PP
+Word parameters can have the value specified in the same argument after an equals
+.RB ( = )
+(e.g.:
+.BR \-\-word=value ).
+.PP
+Positional arguments are defined as values that don't start with \- and do not follow parameters.
+If a
+.B --
+is found, all arguments after it are interpreted as positional arguments.
+.SS Description of Output
+.B clparser
+outputs shell syntax to set variables to the values of the parameters.
+By default, the shell will try to choose the shell syntax from the name of the calling process (found in
+.RI /proc/ ppid /comm).
+If the shell has associative arrays (maps, hash tables, dicts, etc.), 
+.I flags
+are set in an associative array called
+.BR flags ,
+and
+.I parameters
+are set in an associative array called
+.BR params .
+`sh`, `csh`, and `fish` do not have associative arrays, so flags and parameters are just set as variables.
+Positional arguments are set in an array.
+`sh` does not have arrays, so it overrides argv to place the positional arguments by default.
+See the
+.B OPTIONS
+section below to see how to override these.
+.PP
+The output of parameter values and positional arguments is done through the existing positional arguments
+.RB ( \(dq${\c
+.I number\c
+.BR }" )
+to prevent issues with the shell interpreting whitespace or symbols in the parameters (see the
+.B EXAMPLES
+below for an example).
+.
+.SH OPTIONS
+.BR \-A ,
+.B \-\-override-argv
+Output positional arguments in place of the shell's argv.
+This may be useful in some cases, but most shells have arrays to put the arguments in.
+This is used by default for `sh` since "$@" is the only way of splitting arguments by argument while maintaining whitespace.
+.PP
+.BR \-a ,
+.B \-\-maintain-argv
+Output positional arguments in a variable named
+.B args
+instead of overriding argv.
+This will allow the original argv to be analyzed and used after parsing arguments.
+This will use an array for all shells other than `sh`, since it does not have arrays.
+This is not a good option for `sh` since "$@" is the only way of splitting arguments by argument while maintaining whitespace.
+.PP
+.BR \-s ,
+.BR \-S ,
+.B \-\-shell
+.I shell
+Specify the shell language syntax to be used.
+By default, the shell will try to choose the shell syntax from the name of the calling process.
+.
+.SH EXIT STATUS
+Exit with success (0) if the arguments and specification are parsed successfully.
+Exit with code 1 if outputting help.
+Exit with code 1 if there are not alphanumeric (or _ or \-) characters in input parameters.
+Exit with code 2 if the passed argument was not found in the specification.
+Exit with code 3 if parsing the specification string failed.
+Exit with code 2 if there were neither flags or parameters defined in the specification string.
+.PP
+Yes, these should be separated better.
+.
+.SH EXAMPLES
+Run
+.B clparser
+in POSIX compliant shells using
+.EX sh
+spec='flags: f,flag=-g=-h g=-h=-qwerty qwerty=-flag=-h=-g h,help; parameters: q,asdf u=defval nothing zzz,z,Z=someth;'
+eval "$(echo "$spec" | clparser -- "$@")"
+.EE
+This will output code that looks like
+.EX sh
+flag=false
+f=false
+h=false
+help=false
+g=false
+qwerty=true
+asdf="${2}"
+q="${2}"
+Z='test'
+zzz='test'
+z='test'
+u='defval'
+nothing="${8}"
+set -- "${4}" "${6}" "${10}" "${11}"
+.EE
+if the user called the script with the arguments
+.EX
+-fgq whatever --qwerty 'i dunno' --zzz=test words --nothing else -- --test hi
+.EE
+.PP
+For `csh`, call
+.B clparser
+in this format:
+.EX csh
+set args="`seq -f '"\\"\\$"argv[%.0f]"\\""' $#`"
+eval `eval 'echo $spec | ./clparser -- '"$args"`
+.EE
+Note that just using
+.B $argv
+will not preserve whitespace, which will cause bugs.
+Setting
+.B args
+with `seq` creates a string of `"$argv[1]" "$argv[2]" "$argv[3]" .\|.\|.` for each arg.
+The next line will evaluate this to the values (whitespace protected) when calling
+.B clparser
+and evaluate the resulting `csh` code.
+.PP
+See `fish` and `xonsh` example syntax in the github repo example files.
+For `xonsh`, don't bother using this; just use
+.BR argparse .
+.PP
+.B TODO
+add examples of output for `bash` and `csh` and show use for `fish`.
