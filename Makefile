@@ -4,11 +4,11 @@ include config.mk
 
 CFLAGS += -Wall
 
-clparser : process.o printargs.o map.o
+clparser : parseargs.o printargs.o map.o
 
 map.o: map.h
-process.o: process.h map.h
-printargs.o: printargs.h process.h map.h
+parseargs.o: parseargs.h map.h
+printargs.o: printargs.h parseargs.h map.h
 
 testmap: map.o
 
