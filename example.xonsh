@@ -4,16 +4,31 @@
 
 echo $ARGS
 
+#import os
+#pid = os.getpid()
+#cat -v /proc/@(pid)/cmdline
+#cat /proc/@(pid)/comm
+
 # TODO figure out how to get exiting working
 make or exit(1)
 spec = 'flags: f,flag=-g=-h g=-h=-qwerty qwerty=-flag=-h=-g h,help; parameters: q,asdf u=defval nothing zzz,z,Z=someth;'
+helpmsg = '''
+help = print this help message
+flag = a random flag
+g    = i dunno, its nonsense
+qwerty = a keyboard layout
+asdf = q param
+u    = something
+zzz  = a bunch of zs
+'''
 print(spec)
 # print out the raw output
 echo raw output:
-vars = !(echo @(spec) | ./clparser -s xonsh -- @($ARGS[1:]))
-ec = vars.returncode
-vars = vars.output
+parser_output = !(echo @(spec) | ./clparser -s xonsh -e --help-msg @(helpmsg) -- @($ARGS[1:]))
+ec = parser_output.returncode
+vars = parser_output.output
 print(vars)
+print(parser_output.errors)
 if ec != 0:
     print(f'exit code: {ec}')
     exit(ec)
@@ -22,6 +37,7 @@ echo 'variable results:'
 #$XONSH_SHOW_TRACEBACK = True
 # execx isn't really documented well, so its annoying that they changed the name of the globals keyword
 execx(vars, glbs=globals())
+#execx($(echo @(spec) | ./clparser -s xonsh -e --help-msg @(helpmsg) -- @($ARGS[1:])), glbs=globals())
 print(f'f,flag  = { flags["flag"]}')
 print(f'g       = { flags["g"]}')
 print(f'qwerty  = { flags["qwerty"]}')

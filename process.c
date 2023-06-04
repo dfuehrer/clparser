@@ -17,6 +17,8 @@ typedef struct nllist_s {
 
 // TODO add C++ library
 
+// TODO split out the printing stuff into a separate header file so that the C lib can be cleaner and not have to rely on (and compile in) all that code
+
 // so the idea of this is that it will go through buff and add pointers to a linked list to dostuffs
 // so im gonna need to make linked list functions to do all the linked list things like swapping pointers and stuff
 // also i might want to make it sort the linked list as it isbeing created and stuff but im not sure
@@ -742,50 +744,25 @@ int printParamsWrapper(map_t * map, MapData * node, void * input){
     return printParams(node, outFile, !node->data.required);
 }
 
-int printUsageBase(map_t * flagMap, map_t * paramMap, const char * progname, bool isEvaluated, Shell shell){
-    //FILE * outFile = stderr;
-    FILE * outFile = stdout;
+int printUsage(map_t * flagMap, map_t * paramMap, const char * progname){
+    FILE * outFile = stderr;
+    //FILE * outFile = stdout;
     int len = 0;
-    if(isEvaluated){
-        len += fprintf(outFile, "printf 'Usage:\\t%%s%%s\\n' ");
-        if(progname == NULL){
-            int argnum = 0;
-            ArgData arg0 = {
-                .ptr=&argnum,
-                .type=INT,
-            };
-            len += printShellValue(&arg0, shell);
-        }else{
-            len += fprintf(outFile, "%s", progname);
-        }
-        len += fprintf(outFile, " '");
-    }else{
-        len += fprintf(outFile, "Usage:\t%s", progname);
+    if(progname == NULL){
+        error(3, 0, "Must specify progname for printing usage");
     }
+    len += fprintf(outFile, "Usage:\t%s", progname);
     len += iterMapSingle(flagMap , printFlagsWrapper , outFile);
     len += iterMapSingle(paramMap, printParamsWrapper, outFile);
-    if(isEvaluated){
-        len += fprintf(outFile, "'");
-    }
     len += fprintf(outFile, "\n");
     return len;
 }
 
-int printUsage(map_t * flagMap, map_t * paramMap, const char * progname){
-    if(progname == NULL){
-        error(3, 0, "Must specify progname for printing usage");
-    }
-    return printUsageBase(flagMap, paramMap, progname, false, SH);
-}
-int printUsageShell(map_t * flagMap, map_t * paramMap, const char * progname, Shell shell){
-    return printUsageBase(flagMap, paramMap, progname, true, shell);
-}
-
 // TODO make this function format the strings (just line wrapping nicely)
 //  - include the terminal width in this formatting too
-int printHelpBase(map_t * flagMap, map_t * paramMap, const char * helpMessage, bool isEvaluated){
-    //FILE * outFile = stderr;
-    FILE * outFile = stdout;
+int printHelp(map_t * flagMap, map_t * paramMap, const char * helpMessages){
+    FILE * outFile = stderr;
+    //FILE * outFile = stdout;
     const char * key;
     const char * msg;
     const char * lastSpace;
@@ -793,7 +770,7 @@ int printHelpBase(map_t * flagMap, map_t * paramMap, const char * helpMessage, b
     int msgLen;
     int len = 0;
     bool wasSpace = false;
-    for(const char * c = helpMessage; *c != '\000'; ++c){
+    for(const char * c = helpMessages; *c != '\000'; ++c){
         // skip past leading whitespace
         for( ; isspace(*c); ++c);
         if(*c == '\000'){
@@ -839,10 +816,6 @@ int printHelpBase(map_t * flagMap, map_t * paramMap, const char * helpMessage, b
         int printedLen = 0;
         // print node arg
         if(node != NULL){
-            if(isEvaluated){
-                // printing this in the if statements so it doesnt start printing somehthing and then just error
-                printf("printf '%%s\\n' '");
-            }
             //bool optional = (strstr(helpText, "optional") != NULL);
             printedLen = printParams(node, outFile, !node->data.required);
         }else{
@@ -851,18 +824,11 @@ int printHelpBase(map_t * flagMap, map_t * paramMap, const char * helpMessage, b
             if(node == NULL){
                 error(7, 0, "key '%.*s' does not exist in map", keyLen, key);
             }
-            if(isEvaluated){
-                printf("printf '%%s\\n' '");
-            }
             printedLen = printFlags(node, outFile);
         }
         // print help message
         len += printedLen;
-        len += fprintf(outFile, "%-*s %.*s", ARG_SPACE - printedLen - 1, "", msgLen, msg);
-        if(isEvaluated){
-            len += printf("'");
-        }
-        len += printf("\n");
+        len += fprintf(outFile, "%-*s %.*s\n", ARG_SPACE - printedLen - 1, "", msgLen, msg);
         if(*c == '\000'){
             break;
         }
@@ -871,9 +837,9 @@ int printHelpBase(map_t * flagMap, map_t * paramMap, const char * helpMessage, b
     return len;
 }
 
-int printHelp     (map_t * flagMap, map_t * paramMap, const char * helpMessage){
-    return printHelpBase(flagMap, paramMap, helpMessage, false);
-}
-int printHelpShell(map_t * flagMap, map_t * paramMap, const char * helpMessage){
-    return printHelpBase(flagMap, paramMap, helpMessage, true);
+int printExit(Shell shell){
+    if(shell == XONSH){
+        return printf("exit()\n");
+    }
+    return printf("exit\n");
 }

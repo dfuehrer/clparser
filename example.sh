@@ -10,11 +10,14 @@ asdf = q param
 u    = something
 zzz  = a bunch of zs
 '
-#tr '\0' '\n' < /proc/$$/cmdline | head -n2
-#cat /proc/$$/comm
+tr '\0' '\n' < /proc/$$/cmdline | head -n2
+cat /proc/$$/comm
+cat -v /proc/$$/cmdline
+echo
+wc /proc/$$/cmdline
 # print out the raw output
 echo raw output:
-vars="$(echo "$spec" | ./clparser --help-msg "$helpmsg" -- "$@")"
+vars="$(echo "$spec" | ./clparser -e --help-msg "$helpmsg" -- "$@")"
 ec=$?
 printf '%s\n' "$vars"
 if [ "$ec" -ne 0 ]; then

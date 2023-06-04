@@ -15,7 +15,7 @@ zzz  = a bunch of zs\
 echo raw output:
 #echo "$spec:q" | ./clparser --help-msg "$helpmsg:q" -- $argv:q
 #set vars=`echo $spec | ./clparser -- $argv[*]`
-set vars=`echo $spec:q | ./clparser --help-msg $helpmsg:q -- $argv:q`
+set vars=`echo $spec:q | ./clparser -e --help-msg $helpmsg:q -- $argv:q`
 #set vars="`eval echo '$spec:q' | ./clparser -- $argv:q`"
 set ec=$?
 echo vars len: $#vars
@@ -26,8 +26,9 @@ if ( "$ec" != 0 ) then
 endif
 # actually run it and show results
 echo variable results:
-#eval "$vars:q"
-eval "`echo $spec:q | ./clparser --help-msg $helpmsg:q -- $argv:q`"
+eval "$vars:q"
+#eval `echo "$spec:q" | ./clparser -e --help-msg "$helpmsg:q" -- $argv:q`
+$help && exit
 echo f,flag  = "$flag"
 echo g       = "$g"
 echo qwerty  = "$qwerty"

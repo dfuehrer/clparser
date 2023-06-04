@@ -2,10 +2,18 @@
 
 make || exit
 set spec 'flags: f,flag=-g=-h g=-h=-qwerty qwerty=-flag=-h=-g h,help; parameters: q,asdf u=defval nothing zzz,z,Z=someth;'
-echo $spec
+set helpmsg '
+help = print this help message
+flag = a random flag
+g    = i dunno, its nonsense
+qwerty = a keyboard layout
+asdf = q param
+u    = something
+zzz  = a bunch of zs
+'
 # print out the raw output
 echo raw output:
-set vars "$(echo $spec | ./clparser -- $argv)"
+set vars "$(echo $spec | ./clparser -e --help-msg $helpmsg -- $argv)"
 set ec $status
 echo $vars
 if test $ec != 0

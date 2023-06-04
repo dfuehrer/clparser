@@ -5,6 +5,8 @@
 #include "process.h"
 
 #define MAX_SHELL_LEN   10
+#define MAX_PROCCOMM_LEN    (6 + 10 + 5 + 1)    // /proc/ + ppid + /comm    + \000
+#define MAX_PROCCMDLINE_LEN  (6 + 10 + 8 + 1)    // /proc/ + ppid + /cmdline + \000
 
 // TODO clean up the new section and put it in a function thing
 // TODO prolly add in lists by separating by commas or something
@@ -73,11 +75,13 @@ int main(int argc, const char * const argv[]){
     MapData * maintainArgvNode = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssd"  , STRVIEW("maintain-argv"), "a", 1);
     MapData * overrideArgvNode = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssd"  , STRVIEW("override-argv"), "A", 1);
     MapData * helpExitsNode    = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssd"  , STRVIEW("help-exits"   ), "e", 1);
-    MapData * shellNode        = addMapMembers(&paramMap_loc, "default" , STR , true , "Ssdsd", STRVIEW("shell"        ), "S", 1, "s", 1);
+    MapData * useNamespaceNode = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssd"  , STRVIEW("namespace"    ), "n", 1);
     MapData * helpMsgNode      = addMapMembers(&paramMap_loc, NULL      , STR , false, "Ssdsd", STRVIEW("help-msg"     ), "H", 1, "m", 1);
+    MapData * shellNode        = addMapMembers(&paramMap_loc, "default" , STR , true , "Ssdsd", STRVIEW("shell"        ), "S", 1, "s", 1);
     MapData * progNameNode     = addMapMembers(&paramMap_loc, "default" , STR , true , "Ssd"  , STRVIEW("prog-name"    ), "p", 1);
     setNodeNegation(maintainArgvNode, overrideArgvNode);
     setNodeNegation(overrideArgvNode, maintainArgvNode);
+    //setNodeNegation(useNamespaceNode, maintainArgvNode);
     //helpMsgNode->data.required = false;     // this isnt really super required
 
     Errors retVal = parseArgs(argc - 1, argv + 1, &flagMap_loc, &paramMap_loc, &passedArgs);
@@ -90,24 +94,41 @@ int main(int argc, const char * const argv[]){
     const char * shellStr =    shellNode->data.ptr;
     const char * progName = progNameNode->data.ptr;
     char parentCommandStr[MAX_SHELL_LEN] = "";
+    bool allocatedProgName = false;
+    pid_t ppid = getppid();
     if(strcmp(shellStr, "default") == 0){
-        pid_t ppid = getppid();
         // TODO figure out a general way of getting the calling process name
-        char * pcmdFilename = NULL;
-        asprintf(&pcmdFilename, "/proc/%d/comm", ppid);
+        //char * pcmdFilename = NULL;
+        char pcmdFilename[MAX_PROCCOMM_LEN];
+        //asprintf(&pcmdFilename, "/proc/%d/comm", ppid);
+        snprintf(pcmdFilename, MAX_PROCCOMM_LEN, "/proc/%d/comm", ppid);
         FILE * pcmdFile = fopen(pcmdFilename, "r");
-        free(pcmdFilename);
+        //free(pcmdFilename);
         fgets(parentCommandStr, MAX_SHELL_LEN, pcmdFile);
         int comlen = strlen(parentCommandStr);
         if( parentCommandStr[comlen-1] == '\n'){
             parentCommandStr[comlen-1] =  '\000';
         }
-        // TODO xonsh seems to be more of a pain (at least with the appimage)
+        // TODO xonsh seems to be more of a pain
         shellStr = parentCommandStr;
         shellNode->data.defaultData->ptr = shellStr;
     }
     if(strcmp(progName, "default") == 0){
-        progName = NULL;
+        // TODO figure out a general way of getting the calling script
+        //char * pcmdFilename = NULL;
+        char pcmdFilename[MAX_PROCCMDLINE_LEN];
+        //asprintf(&pcmdFilename, "/proc/%d/comm", ppid);
+        snprintf(pcmdFilename, MAX_PROCCMDLINE_LEN, "/proc/%d/cmdline", ppid);
+        FILE * pcmdFile = fopen(pcmdFilename, "r");
+        //free(pcmdFilename);
+        size_t n = 0;
+        char * cmdline = NULL;
+        // call getline twice to get the first arg (script filename)
+        getdelim(&cmdline, &n, '\000', pcmdFile);
+        getdelim(&cmdline, &n, '\000', pcmdFile);
+        progName = cmdline;
+        progNameNode->data.defaultData->ptr = progName;
+        allocatedProgName = progName != NULL;
     }
 
     if(*(const bool *)helpNode->data.ptr){
@@ -149,6 +170,7 @@ int main(int argc, const char * const argv[]){
         shell = XONSH;
     }
 
+    bool useNamespace =  *(const bool *)useNamespaceNode->data.ptr;
     bool helpExits =  *(const bool *)helpExitsNode   ->data.ptr;
     bool useArgv   =  *(const bool *)overrideArgvNode->data.ptr;
     if( !useArgv &&  !*(const bool *)maintainArgvNode->data.ptr && shell == SH){
@@ -209,6 +231,7 @@ int main(int argc, const char * const argv[]){
         return 2;
     }
 
+    // TODO pass in all these options in a struct
     retVal = parseArgsPrint(passedArgc, passedArgs, &flagMap, &paramMap, shell, useArgv);
     // TODO do some stuffs and figure out the errors
     //  - probably exit with this exit code specifically
@@ -224,13 +247,12 @@ int main(int argc, const char * const argv[]){
         // TODO get the script name
         // TODO have the help info not print out to stderr and instead give printf commands 
         //printf(";\n");
-        printUsageShell(&flagMap, &paramMap, NULL, shell);
+        printUsage(&flagMap, &paramMap, progName);
         if(helpMessage != NULL){
-            printHelpShell(&flagMap, &paramMap, helpMessage);
+            printHelp(&flagMap, &paramMap, helpMessage);
         }
         if(helpExits){
-            // TODO get a function for doing this in various shells
-            printf("exit");
+            printExit(shell);
         }
         return 0;
     }
@@ -239,6 +261,9 @@ int main(int argc, const char * const argv[]){
     freeMap(&paramMap);
 
     free(cbuf);
+    if(allocatedProgName){
+        free((void *)progName);
+    }
 
     return retVal;
 }

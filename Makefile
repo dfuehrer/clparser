@@ -1,5 +1,6 @@
 include config.mk
 
+# TODO figure out compiling a .so/.a lib so it can be included easier
 
 CFLAGS += -Wall
 

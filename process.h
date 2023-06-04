@@ -42,10 +42,8 @@ Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap
 Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * defaultValues_ptr[], bool print, Shell shell, bool useArgv);
 
 int printUsage(map_t * flagMap, map_t * paramMap, const char * progname);
-int printUsageShell(map_t * flagMap, map_t * paramMap, const char * progname, Shell shell);
-int printUsageBase(map_t * flagMap, map_t * paramMap, const char * progname, bool isEvaluated, Shell shell);
 int printHelp(map_t * flagMap, map_t * paramMap, const char * helpMessage);
-int printHelpShell(map_t * flagMap, map_t * paramMap, const char * helpMessage);
-int printHelpBase(map_t * flagMap, map_t * paramMap, const char * helpMessage, bool isEvaluated);
+
+int printExit(Shell shell);
 
 #endif
