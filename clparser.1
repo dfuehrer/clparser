@@ -203,6 +203,14 @@ This is done by printing `exit` to stdout to be evaluated.
 Specify the shell language syntax to be used.
 By default, the shell will try to choose the shell syntax from the name of the calling process.
 .PP
+.BR \-p ,
+.B \-\-prog\-name
+.I prog_name
+Specify the name of the script to use in the usage message.
+By default, the shell will try to choose the path of the script of the calling process (the first argument in the cmdline).
+This is taken from
+.RI /proc/ ppid /cmdline.
+.PP
 .BR \-H ,
 .BR \-m ,
 .B \-\-help\-msg

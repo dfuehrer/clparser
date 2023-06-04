@@ -24,7 +24,7 @@ zzz  = a bunch of zs
 print(spec)
 # print out the raw output
 echo raw output:
-parser_output = !(echo @(spec) | ./clparser -s xonsh -e --help-msg @(helpmsg) -- @($ARGS[1:]))
+parser_output = !(echo @(spec) | ./clparser -s xonsh --prog-name $ARG0 -e --help-msg @(helpmsg) -- @($ARGS[1:]))
 ec = parser_output.returncode
 vars = parser_output.output
 print(vars)

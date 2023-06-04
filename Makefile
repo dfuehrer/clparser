@@ -2,7 +2,7 @@ include config.mk
 
 # TODO figure out compiling a .so/.a lib so it can be included easier
 
-CFLAGS += -Wall
+CFLAGS += -Wall -Wextra
 
 clparser : parseargs.o printargs.o map.o
 

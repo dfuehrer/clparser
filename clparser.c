@@ -146,7 +146,8 @@ int main(int argc, const char * const argv[]){
                  override-argv = do     override argv\n\
                  namespace     = namespace args by prepending flags_ or params_ to the variable names\n\
                  shell         = which shell syntax to use (sh, bash, zsh, ksh, csh, fish, xonsh) (default to calling shell)\n\
-                 help-exits    = exit after printing the help message\n\
+                 prog-name     = name of program to display in --help usage message\n\
+                 help-exits    = exit after printing the help message (default to path of script called (first arg of cmdline of calling shell))\n\
                  help-msg      = some sort of string of help messages for args");
         return 1;
     }
