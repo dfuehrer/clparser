@@ -60,7 +60,7 @@ E.g.:
 Parameters can have default values.
 Default values set the value of the parameters if the parameter is not set with the input command line arguments.
 Default values are set by appending an equals
-.RB ( = )
+.RI ( = )
 after the parameters (e.g.:
 .IR line,l=default ).
 .PP
@@ -71,7 +71,9 @@ E.g.: if
 has
 .B \-o
 set as a negation flag, then the following input arguments
-.B \-i \-\-param value \-o
+.B \-i \-\-param
+.I value
+.B \-o
 will set set
 .B i
 to false and
@@ -80,7 +82,9 @@ to true.
 This can be helpful, especially when users alias a script with arguments that the user might want to override (imagine
 .B \-i
 was set in the alias and
-.B \-\-param value \-o
+.B \-\-param
+.I value
+.B \-o
 was set by the user).
 Negation flags can be set by appending equals minus
 .RB ( =- )
@@ -123,7 +127,8 @@ are flags.
 Word parameters can have the value specified in the same argument after an equals
 .RB ( = )
 (e.g.:
-.BR \-\-word=value ).
+.B \-\-word=\c
+.IR value ).
 .PP
 Positional arguments are defined as values that don't start with \- and do not follow parameters.
 If a
@@ -224,7 +229,7 @@ qwerty = a keyboard layout
 asdf = q param
 u    = something
 zzz  = a bunch of zs
-'
+\(aq
 eval "$(echo "$spec" | clparser -- "$@")"
 .EE
 This will output code that looks like

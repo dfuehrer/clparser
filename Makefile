@@ -13,7 +13,7 @@ testmap: map.o
 PHONY : clean install
 
 clean :
-	rm -f ${OBJ} clparser
+	rm -f ${OBJ} clparser *.o
 	
 install : clparser
 	mkdir -p ${DESTDIR}${PREFIX}/bin
