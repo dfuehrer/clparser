@@ -232,7 +232,12 @@ int main(int argc, const char * const argv[]){
     }
 
     // TODO pass in all these options in a struct
-    retVal = parseArgsPrint(passedArgc, passedArgs, &flagMap, &paramMap, shell, useArgv);
+    ParsePrintOptions parseOpts = {
+        .shell=shell,
+        .useArgv=useArgv,
+        .useNamespace=useNamespace,
+    };
+    retVal = parseArgsPrint(passedArgc, passedArgs, &flagMap, &paramMap, &parseOpts);
     // TODO do some stuffs and figure out the errors
     //  - probably exit with this exit code specifically
     //if(retVal != Success){

@@ -193,6 +193,7 @@ State setState(char * c){
 typedef struct {
     Shell shell;
     char * arrayName;
+    bool useNamespace;
 } PrintValueData;
 
 int printDeclareAssocArr(const char * arrayName, Shell shell){
@@ -217,7 +218,7 @@ int printDeclareAssocArr(const char * arrayName, Shell shell){
 
 int printShellValue(const ArgData * data, Shell shell);
 
-int printShellVar(const char * key, int keylen, const char * arrayName, const ArgData * data, Shell shell){
+int printShellVar(const char * key, int keylen, const char * arrayName, const ArgData * data, Shell shell, bool useNamespace){
     //printf("printing shell var: %.*s in array %s with data %p (type %d) and shell %i\n", keylen, key, arrayName, data->ptr, data->type, shell);
     int len = 0;
     const char * pre_fmt;
@@ -227,13 +228,21 @@ int printShellVar(const char * key, int keylen, const char * arrayName, const Ar
     // in sh, csh, and fish, there are no associative arrays, so just set variables
     switch(shell){
         case CSH:
-            arrayName = "";
-            pre_fmt = "set %s%.*s=";
+            // TODO figure out how to generalize this..
+            if(useNamespace){
+                pre_fmt = "set %s_%.*s=";
+            }else{
+                arrayName = "";
+                pre_fmt = "set %s%.*s=";
+            }
             break;
         case FISH:
-            // TODO fish needs different prefixes i think
-            arrayName = "";
-            pre_fmt = "set %s%.*s ";
+            if(useNamespace){
+                pre_fmt = "set %s_%.*s ";
+            }else{
+                arrayName = "";
+                pre_fmt = "set %s%.*s ";
+            }
             break;
         case BASH:
         case ZSH:
@@ -245,8 +254,12 @@ int printShellVar(const char * key, int keylen, const char * arrayName, const Ar
             break;
         case SH:
         default:
-            arrayName = "";
-            pre_fmt = "%s%.*s=";
+            if(useNamespace){
+                pre_fmt = "%s_%.*s=";
+            }else{
+                arrayName = "";
+                pre_fmt = "%s%.*s=";
+            }
             break;
     }
     // pre_fmt has format for array name, key len, key, the value prefix
@@ -307,7 +320,7 @@ int printShellValue(const ArgData * data, Shell shell){
 
 // print out values of a key in the map in shell syntax
 // TODO add array name and shell args
-int printKeyValues(const MapData * node, const char * arrayName, Shell shell){
+int printKeyValues(const MapData * node, const char * arrayName, Shell shell, bool useNameSpace){
     int len = 0;
     for(int i = 0; i < node->namesLen; ++i){
         const char * str = node->names[i];
@@ -331,7 +344,7 @@ int printKeyValues(const MapData * node, const char * arrayName, Shell shell){
         //      - i guess ksh exists too or something
         // TODO get the shell from an arg
         //  - itd be cool to get this from the calling process rather than a command line input (or default that could be overridden)
-        len += printShellVar(str, node->nameLens[i], arrayName, &node->data, shell);
+        len += printShellVar(str, node->nameLens[i], arrayName, &node->data, shell, useNameSpace);
         // TODO maybe handle this str so we dont free it multiple times in a loop
         if(tmpstr != NULL){
             // if created tmp str to replace - then free it
@@ -462,7 +475,7 @@ int printArraySep(Shell shell, bool useArgv){
 
 int printKeyValuesWrapper(map_t * map, MapData * node, void * input){
     PrintValueData * printInput = input;
-    return printKeyValues(node, printInput->arrayName, printInput->shell);
+    return printKeyValues(node, printInput->arrayName, printInput->shell, printInput->useNamespace);
     //if(node->data.ptr != NULL){
     //    return printKeyValues(node, printInput->arrayName, printInput->shell);
     ////}else if(node->data.type == INT){
@@ -479,13 +492,13 @@ int freeNodeInts(map_t * map, MapData * node, void * input){
     return 0;
 }
 
-Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * defaultValues_ptr[], bool print, Shell shell, bool useArgv){
+Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * positionalParams_ptr[], bool print){
 
-    // defaultValues_ptr is a ptr to an array of positional args
-    // TODO maybe try to accomodate if defaultValues_ptr is NULL
-    *defaultValues_ptr = (const char **) calloc((argc+1), sizeof (const char *));
-    memset(*defaultValues_ptr, (long) NULL, argc+1);
-    const char ** thisDef = *defaultValues_ptr;
+    // positionalParams_ptr is a ptr to an array of positional args
+    // TODO maybe try to accomodate if positionalParams_ptr is NULL
+    *positionalParams_ptr = (const char **) calloc((argc+1), sizeof (const char *));
+    memset(*positionalParams_ptr, (long) NULL, argc+1);
+    const char ** thisDef = *positionalParams_ptr;
 
     bool checkFlags;
 
@@ -645,54 +658,52 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
         }
     }
 
-    // now print out the values without parameters (defaults)
-    if(print){
-        // print out all values
-        PrintValueData printInput;
-        printInput.shell     = shell;
-        printInput.arrayName = "flags";
-        printDeclareAssocArr(printInput.arrayName, shell);
-        iterMapSingle(flagMap,  printKeyValuesWrapper, &printInput);
-        printInput.arrayName = "params";
-        printDeclareAssocArr(printInput.arrayName, shell);
-        iterMapSingle(paramMap, printKeyValuesWrapper, &printInput);
-        // free the ints now
-        iterMapSingle(paramMap, freeNodeInts, NULL);
-
-        // TODO have an option to not lose the optional args
-        // TODO have this use something that defines the shell syntax
-        //  - NOTE for this, it should use builtin syntax
-        printInitArgs("args", shell, useArgv);
-        int i = 1;
-        ArgData argvData = {
-            .ptr  = &i,
-            .type = INT,
-        };
-        for(thisDef = *defaultValues_ptr; *thisDef != NULL; ++thisDef){
-            if(i != 1){
-                printArraySep(shell, useArgv);
-            }
-            // find index of this string for printing out var to use
-            for( ; i < argc && *thisDef != argv[i-1]; ++i);
-            printShellValue(&argvData, shell);
-        }
-        printEndArgs(shell, useArgv);
-    }
-
     return Success;
 }
 
 
 // define function to parse args for C lib (no printing)
-Errors parseArgs(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * defaultValues_ptr[]){
-    return parseArgsBase(argc, argv, flagMap, paramMap, defaultValues_ptr, false, SH, false);
+Errors parseArgs(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * positionalParams_ptr[]){
+    return parseArgsBase(argc, argv, flagMap, paramMap, positionalParams_ptr, false);
 }
 // define function to parse args for sh (print)
-Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, Shell shell, bool useArgv){
-    const char ** defaultValues_ptr = NULL;
-    // TODO should we just use bools for the print stuff?
-    Errors err = parseArgsBase(argc, argv, flagMap, paramMap, &defaultValues_ptr, true, shell, useArgv);
-    free(defaultValues_ptr);
+Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, ParsePrintOptions * parseOpts){
+    const char ** positionalParams = NULL;
+    Errors err = parseArgsBase(argc, argv, flagMap, paramMap, &positionalParams, true);
+
+    Shell shell  = parseOpts->shell;
+    bool useArgv = parseOpts->useArgv;
+    // print out all values
+    PrintValueData printInput = {
+        .shell          = shell,
+        .arrayName      = "flags",
+        .useNamespace   = parseOpts->useNamespace,
+    };
+    printDeclareAssocArr(printInput.arrayName, shell);
+    iterMapSingle(flagMap,  printKeyValuesWrapper, &printInput);
+    printInput.arrayName = "params";
+    printDeclareAssocArr(printInput.arrayName, shell);
+    iterMapSingle(paramMap, printKeyValuesWrapper, &printInput);
+    // free the ints now
+    iterMapSingle(paramMap, freeNodeInts, NULL);
+
+    printInitArgs("args", shell, useArgv);
+    int i = 1;
+    ArgData argvData = {
+        .ptr  = &i,
+        .type = INT,
+    };
+    for(const char ** thisDef = positionalParams; *thisDef != NULL; ++thisDef){
+        if(i != 1){
+            printArraySep(shell, useArgv);
+        }
+        // find index of this string for printing out var to use
+        for( ; i < argc && *thisDef != argv[i-1]; ++i);
+        printShellValue(&argvData, shell);
+    }
+    printEndArgs(shell, useArgv);
+
+    free(positionalParams);
     return err;
 }
 
