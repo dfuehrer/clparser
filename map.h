@@ -9,7 +9,14 @@
 
 #define MAP_ARR_LEN UINT8_MAX
 
-#define MIN(x, y)   ((y < x) ? y : x)
+#define ARRAY_LENGTH(arr)   (sizeof arr / sizeof arr[0])
+// this will output 2 args for using with functions that require key, len
+// TODO this is cursed, probably just make something that will create a stringview for these things
+#define KEY_LEN_PAIR(str)   str, (ARRAY_LENGTH(str) - 1)
+#define STRVIEW(string)     ((StringView) {.str=string, .len=(ARRAY_LENGTH(string) - 1)})
+#ifndef MIN
+#   define MIN(x, y)   ((y < x) ? y : x)
+#endif  // MIN
 
 typedef enum DataType{
     INT,
@@ -38,7 +45,7 @@ typedef struct sllist_s {
 } sllist_t;
 
 typedef struct mnllist_s {
-    struct MapNode_s * node;
+    struct MapData_s * data;
     struct mnllist_s * next;
 } mnllist_t;
 
@@ -55,14 +62,15 @@ typedef struct ArgData_s {
     struct ArgData_s * defaultData;
 } ArgData;
 
-typedef struct MapNode_s{
+typedef struct MapData_s{
     const char * * names;
     int * nameLens;
     int namesLen;
     // TODO maybe go back to this being a void pointer and have this stuff be on the process.h specificity
     ArgData data;
-    // TODO this currently has a bug where the node is duplicated across elements so they all share the same `next` value even though that doesn't make any sense (doesn't cause bugs, does increase collisions, decreasing performance)
-    //  - just create a different structure that contains a pointer to one of these (without next) and a next node so the next is unique to the outer layer but the keys and data are shared
+} MapData;
+typedef struct MapNode_s{
+    MapData * data;
     struct MapNode_s * next;
 } MapNode;
 
@@ -78,30 +86,30 @@ void initMap(map_t * map);
 // fmt is a "format string" that specifies what types the variadic keys are
 // %S is a StringView, %s is a char[] for the key, %d or %i is an int for the string length
 // length must follow a string, otherwise it will error
-MapNode * addMapMembers(map_t * map, const void * data, DataType type, bool setDefault, const char fmt[], ...);
-MapNode * addMapMembers_fromList(map_t * map, const void * data, DataType type, sllist_t * head, int numKeys, bool setDefault);
+MapData * addMapMembers(map_t * map, const void * data, DataType type, bool setDefault, const char fmt[], ...);
+MapData * addMapMembers_fromList(map_t * map, const void * data, DataType type, sllist_t * head, int numKeys, bool setDefault);
 
 // TODO add check for if key in map
 const void * setMapMemberData(map_t * map, const void * data, const char * key, int len);
 
 bool hasNode(const map_t * map, const char * key, int len);
-MapNode * getMapNode(const map_t * map, const char * key, int len);
+MapData * getMapNode(const map_t * map, const char * key, int len);
 const void * getMapMemberData(const map_t * map, const char * key, int len);
 int  getMapMember_int (map_t * map, const char * key, int len);
 bool getMapMember_bool(map_t * map, const char * key, int len);
 char getMapMember_char(map_t * map, const char * key, int len);
 
-void setNodeNegation(MapNode * node, MapNode * negative);
+void setNodeNegation(MapData * data, MapData * negative);
 
 //void delMembers(map_t map, ...);
 void freeMap(map_t * map);
 
-MapNode * popMapNode(map_t * map, const MapNode * refNode);
+void popMapNode(map_t * map, const MapData * data);
 
 void printMap(map_t * map);
 int printArgData(const ArgData * data, FILE * file);
 
-typedef int (*MapIterFunc_t)(map_t *, MapNode *, void *);
+typedef int (*MapIterFunc_t)(map_t *, MapData *, void *);
 int iterMap      (map_t * map, MapIterFunc_t mapIterFunc, void * funcInput);
 int iterMapSingle(map_t * map, MapIterFunc_t mapIterFunc, void * funcInput);
 

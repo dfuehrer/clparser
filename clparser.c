@@ -69,12 +69,13 @@ int main(int argc, const char * const argv[]){
     int passedArgc;
     initMap(&flagMap_loc);
     initMap(&paramMap_loc);
-    MapNode * helpNode         = addMapMembers(&flagMap_loc , &flagFalse, BOOL, false, "sdsd"  , "help"         , 4 , "h", 1);
-    MapNode * maintainArgvNode = addMapMembers(&flagMap_loc , &flagFalse, BOOL, false, "sdsd"  , "maintain-argv", 13, "a", 1);
-    MapNode * overrideArgvNode = addMapMembers(&flagMap_loc , &flagFalse, BOOL, false, "sdsd"  , "override-argv", 13, "A", 1);
-    MapNode * shellNode        = addMapMembers(&paramMap_loc, "default" , STR , true , "sdsdsd", "shell"        , 5 , "S", 1, "s", 1);
-    MapNode * helpMsgNode      = addMapMembers(&paramMap_loc, NULL      , STR , false, "sdsdsd", "help-msg"     , 8 , "H", 1, "m", 1);
-    MapNode * progNameNode     = addMapMembers(&paramMap_loc, "default" , STR , true , "sdsd"  , "prog-name"    , 9 , "p", 1);
+    MapData * helpNode         = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssd"  , STRVIEW("help"         ), "h", 1);
+    MapData * maintainArgvNode = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssd"  , STRVIEW("maintain-argv"), "a", 1);
+    MapData * overrideArgvNode = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssd"  , STRVIEW("override-argv"), "A", 1);
+    MapData * helpExitsNode    = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssd"  , STRVIEW("help-exits"   ), "e", 1);
+    MapData * shellNode        = addMapMembers(&paramMap_loc, "default" , STR , true , "Ssdsd", STRVIEW("shell"        ), "S", 1, "s", 1);
+    MapData * helpMsgNode      = addMapMembers(&paramMap_loc, NULL      , STR , false, "Ssdsd", STRVIEW("help-msg"     ), "H", 1, "m", 1);
+    MapData * progNameNode     = addMapMembers(&paramMap_loc, "default" , STR , true , "Ssd"  , STRVIEW("prog-name"    ), "p", 1);
     setNodeNegation(maintainArgvNode, overrideArgvNode);
     setNodeNegation(overrideArgvNode, maintainArgvNode);
     //helpMsgNode->data.required = false;     // this isnt really super required
@@ -122,6 +123,7 @@ int main(int argc, const char * const argv[]){
                  maintain-argv = do not override argv\n\
                  override-argv = do     override argv\n\
                  shell         = which shell syntax to use (sh, bash, zsh, ksh, csh, fish, xonsh) (default to calling shell)\n\
+                 help-exits    = exit after printing the help message\n\
                  help-msg      = some sort of string of help messages for args");
         return 1;
     }
@@ -131,7 +133,7 @@ int main(int argc, const char * const argv[]){
     const char * helpMessage = helpMsgNode->data.ptr;
 
     Shell shell;
-    if      (strcmp(shellStr,    "sh") == 0 || strcmp(shellStr, "dash") == 0){
+    if      (strcmp(shellStr,    "sh") == 0 || strcmp(shellStr, "dash") == 0 || strcmp(shellStr, "ash") == 0){
         shell = SH;
     }else if(strcmp(shellStr,  "bash") == 0){
         shell = BASH;
@@ -147,8 +149,9 @@ int main(int argc, const char * const argv[]){
         shell = XONSH;
     }
 
-    bool useArgv  =  *(const bool *)overrideArgvNode->data.ptr;
-    if( !useArgv && !*(const bool *)maintainArgvNode->data.ptr && shell == SH){
+    bool helpExits =  *(const bool *)helpExitsNode   ->data.ptr;
+    bool useArgv   =  *(const bool *)overrideArgvNode->data.ptr;
+    if( !useArgv &&  !*(const bool *)maintainArgvNode->data.ptr && shell == SH){
         // if didnt set override or maintain argv, then default to maintain unless using SH since it has no arrays
         // so the only way to maintain whitespace is to use argv
         useArgv = true;
@@ -225,7 +228,10 @@ int main(int argc, const char * const argv[]){
         if(helpMessage != NULL){
             printHelpShell(&flagMap, &paramMap, helpMessage);
         }
-        //printf("exit");
+        if(helpExits){
+            // TODO get a function for doing this in various shells
+            printf("exit");
+        }
         return 0;
     }
 
