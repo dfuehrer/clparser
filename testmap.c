@@ -7,9 +7,9 @@ int main(){
     initMap(&map);
     char str1[] = "test str";
     printf("going to add '%s' to map\n", str1);
-    addMapMembers(&map, str1, STR, "sdsdsd", "test1", 5, "other test", 5, "diff", 4);
+    addMapMembers(&map, str1, STR, false, "SsdS", STRVIEW("test1"), "other test"   , 5, STRVIEW("diff"   ));
     int i = 5;
-    addMapMembers(&map, &i, INT, "sdsdsd", "test2", 5, "another thing", 5, "i dunno", 4);
+    addMapMembers(&map,   &i, INT, true , "SsdS", STRVIEW("test2"), "another thing", 5, STRVIEW("i dunno"));
 
     printMap(&map);
 
