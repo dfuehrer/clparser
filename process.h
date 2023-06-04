@@ -21,6 +21,8 @@ typedef enum Errors_t {
 } Errors;
 
 // TODO are there any other shells i should try to support?
+// - elvish?
+// - powershell
 typedef enum {
     SH,
     BASH,
@@ -31,25 +33,15 @@ typedef enum {
     XONSH,
 } Shell;
 
-typedef struct {
-    Shell shell;
-    bool useArgv;
-    bool useNamespace;
-} ParsePrintOptions;
-
-// TODO rename this function
 char * parseArgSpec(char * buf, map_t * map, char argType[], void * defaultValue, DataType defaultType, bool allowDefaults);
 
 State setState(char * c);
 
 
 Errors parseArgs(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * positionalParams_ptr[]);
-Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, ParsePrintOptions * parseOpts);
 Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * positionalParams_ptr[], bool print);
 
 int printUsage(map_t * flagMap, map_t * paramMap, const char * progname);
 int printHelp(map_t * flagMap, map_t * paramMap, const char * helpMessage);
-
-int printExit(Shell shell);
 
 #endif

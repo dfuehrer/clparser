@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "process.h"
+#include "printargs.h"
 
 #define MAX_SHELL_LEN   10
 #define MAX_PROCCOMM_LEN    (6 + 10 + 5 + 1)    // /proc/ + ppid + /comm    + \000
