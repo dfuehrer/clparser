@@ -186,6 +186,16 @@ This will allow the original argv to be analyzed and used after parsing argument
 This will use an array for all shells other than `sh`, since it does not have arrays.
 This is not a good option for `sh` since "$@" is the only way of splitting arguments by argument while maintaining whitespace.
 .PP
+.BR \-n ,
+.B \-\-namespace
+Namespace args by prepending flags_ or params_ to the variable names.
+This is only used for shells without associative arrays.
+.PP
+.BR \-e ,
+.B \-\-help\-exits
+The help option will automatically exit.
+This is done by printing `exit` to stdout to be evaluated.
+.PP
 .BR \-s ,
 .BR \-S ,
 .B \-\-shell

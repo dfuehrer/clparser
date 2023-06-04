@@ -144,6 +144,7 @@ int main(int argc, const char * const argv[]){
                 "help          = print this help message\n\
                  maintain-argv = do not override argv\n\
                  override-argv = do     override argv\n\
+                 namespace     = namespace args by prepending flags_ or params_ to the variable names\n\
                  shell         = which shell syntax to use (sh, bash, zsh, ksh, csh, fish, xonsh) (default to calling shell)\n\
                  help-exits    = exit after printing the help message\n\
                  help-msg      = some sort of string of help messages for args");
