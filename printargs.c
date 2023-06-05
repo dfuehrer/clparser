@@ -136,12 +136,14 @@ int printKeyValues(const MapData * node, const char * arrayName, Shell shell, bo
     int len = 0;
     for(int i = 0; i < node->namesLen; ++i){
         const char * str = node->names[i];
-        char * tmpstr = NULL;
+        // TODO should i actually be allocating this every time even though we usually wont need it
+        char tmpstr[node->nameLens[i] + 1];
         // look for - in the names of the input
         char * dashLoc = strchr(str, '-');
         if(dashLoc != NULL){
             // if found -, then duplicate str and replace all - with _
-            tmpstr = strndup(str, node->nameLens[i]);
+            //tmpstr = strndup(str, node->nameLens[i]);
+            strncpy(tmpstr, str, node->nameLens[i]);
             for(dashLoc += tmpstr - str; dashLoc != NULL; dashLoc = strchr(dashLoc, '-')){
                 dashLoc[0] = '_';
             }
@@ -150,10 +152,10 @@ int printKeyValues(const MapData * node, const char * arrayName, Shell shell, bo
         // print out the key='value' or key="$i" in POSIX sh synax
         len += printShellVar(str, node->nameLens[i], arrayName, &node->data, shell, useNameSpace);
         // TODO maybe handle this str so we dont free it multiple times in a loop
-        if(tmpstr != NULL){
-            // if created tmp str to replace - then free it
-            free(tmpstr);
-        }
+        //if(tmpstr != NULL){
+        //    // if created tmp str to replace - then free it
+        //    free(tmpstr);
+        //}
     }
     return len;
 }
@@ -281,6 +283,11 @@ int printKeyValuesWrapper(map_t * map, MapData * node, void * input){
     PrintValueData * printInput = input;
     (void) map;
     return printKeyValues(node, printInput->arrayName, printInput->shell, printInput->useNamespace);
+    // TODO maybe have an options for whether or not to output empty variables
+    //  - in sh it is unnecessary and would mask the values of flags of the same names
+    //      - sometimes nice to have flag to say "do this thing" with optional parameter of the same name that says how
+    //  - of course, just using different names (or using the namespace option) will solve this issue, but its slightly less elegant
+    //      - this does have to be an option because many shells will error if the variable isnt declared
     //if(node->data.ptr != NULL){
     //    return printKeyValues(node, printInput->arrayName, printInput->shell);
     ////}else if(node->data.type == INT){

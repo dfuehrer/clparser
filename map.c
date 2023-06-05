@@ -279,7 +279,8 @@ int iterMapSingle(map_t * map, MapIterFunc_t mapIterFunc, void * funcInput){
         return 0;
     }
     // allocating space for whole map in case its needed
-    const MapData * * data_ptrs = calloc(map->len  , sizeof (const MapData *));
+    //const MapData * * data_ptrs = calloc(map->len  , sizeof (const MapData *));
+    const MapData * data_ptrs[map->len];
     memset(data_ptrs, (long) NULL,      (map->len) * sizeof (const MapData *));
     int ptrsLen = 0;
     int total = 0;
@@ -305,7 +306,7 @@ int iterMapSingle(map_t * map, MapIterFunc_t mapIterFunc, void * funcInput){
             break;
         }
     }
-    free(data_ptrs);
+    //free(data_ptrs);
     return total;
 }
 
