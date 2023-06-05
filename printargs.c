@@ -105,7 +105,6 @@ int printShellValue(const ArgData * data, Shell shell){
                     // apparently in xonsh args are $ARG1 for the first arg ($ARGS[1] only available in python mode)
                     pre  = "$ARG";
                     break;
-                // TODO check that all of these match this syntax
                 // sh and normal shells use "${1}" ({} necessary for args > 1 digit)
                 case SH:
                 case BASH:
@@ -133,7 +132,6 @@ int printShellValue(const ArgData * data, Shell shell){
 }
 
 // print out values of a key in the map in shell syntax
-// TODO add array name and shell args
 int printKeyValues(const MapData * node, const char * arrayName, Shell shell, bool useNameSpace){
     int len = 0;
     for(int i = 0; i < node->namesLen; ++i){
@@ -150,14 +148,6 @@ int printKeyValues(const MapData * node, const char * arrayName, Shell shell, bo
             str = tmpstr;
         }
         // print out the key='value' or key="$i" in POSIX sh synax
-        // TODO make a way to select which syntax to print out in
-        //  - start with bash becuase i think there would be some great features to take advantage of (hopefully associative arrays (dicts/maps) exist)
-        //  - hopefully zsh would have associative arrays or something
-        //  - csh should be easy, same as POSIX sh but `set var val`, no fancy features
-        //  - probably dont care at all about fish or conch but they exist maybe
-        //      - i guess ksh exists too or something
-        // TODO get the shell from an arg
-        //  - itd be cool to get this from the calling process rather than a command line input (or default that could be overridden)
         len += printShellVar(str, node->nameLens[i], arrayName, &node->data, shell, useNameSpace);
         // TODO maybe handle this str so we dont free it multiple times in a loop
         if(tmpstr != NULL){
@@ -289,6 +279,7 @@ int printArraySep(Shell shell, bool useArgv){
 
 int printKeyValuesWrapper(map_t * map, MapData * node, void * input){
     PrintValueData * printInput = input;
+    (void) map;
     return printKeyValues(node, printInput->arrayName, printInput->shell, printInput->useNamespace);
     //if(node->data.ptr != NULL){
     //    return printKeyValues(node, printInput->arrayName, printInput->shell);
@@ -300,6 +291,8 @@ int printKeyValuesWrapper(map_t * map, MapData * node, void * input){
 }
 
 int freeNodeInts(map_t * map, MapData * node, void * input){
+    (void) map;
+    (void) input;
     if(node->data.ptr != NULL && node->data.type == INT){
         free((void *)node->data.ptr);
         node->data.ptr = NULL;

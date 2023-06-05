@@ -180,6 +180,10 @@ State setState(char * c){
             state = Semicolon;
             break;
         default:
+            if(isspace(*c)){
+                state = Space;
+                break;
+            }
             // TODO figure out if i want to have it replace the character if its not one of these cause if so then put the *c = '\0' after the switch-case cause its all the same
             // it probably doesnt matter really but the : on the second section would be replaced and then that would be a tad weird
             state = Error;
@@ -213,7 +217,6 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                     if(!isalnum(*f)){
                         fprintf(stderr, "char '%c' in %s not allowed\n", *f, argv[i]);
                         return NotAlnum;   // error if f not alphanumeric
-                    // TODO consider making a large string and then sprintf to it and print it at the end so it doesnt stop halfway through on an error
                     // if this is last char and the next param doesnt have a - then this is probably a parameter
                     }else if(((f[1]) == '\000') && ((i+1 < argc) && (argv[i+1][0] != '-'))){
                         MapData * node = getMapNode(paramMap, f, 1);
@@ -292,7 +295,6 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                     //puts("well its gotta be alnum");
                     fprintf(stderr, "arg %s not allowed, should be alnum or -/_", argv[i]);
                     return NotAlnum;   // error if f not alphanumeric
-                // TODO consider making a large string and then sprintf to it and print it at the end so it doesnt stop halfway through on an error
                 //}else if((i+1 < argc) && (argv[i+1][0] != '-')){   // then this is probably a parameter
                 }else if(val != NULL){   // then this is probably a parameter
                     MapData * node = getMapNode(paramMap, word, wordlen);
@@ -378,6 +380,7 @@ int printFlags(MapData * node, FILE * file){
 }
 int printFlagsWrapper(map_t * map, MapData * node, void * input){
     FILE * outFile = (FILE *) input;
+    (void) map;
     return printFlags(node, outFile);
 }
 
@@ -408,6 +411,7 @@ int printParams(MapData * node, FILE * file, bool optional){
 }
 int printParamsWrapper(map_t * map, MapData * node, void * input){
     FILE * outFile = (FILE *) input;
+    (void) map;
     return printParams(node, outFile, !node->data.required);
 }
 

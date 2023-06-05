@@ -10,9 +10,6 @@
 #define MAP_ARR_LEN UINT8_MAX
 
 #define ARRAY_LENGTH(arr)   (sizeof arr / sizeof arr[0])
-// this will output 2 args for using with functions that require key, len
-// TODO this is cursed, probably just make something that will create a stringview for these things
-#define KEY_LEN_PAIR(str)   str, (ARRAY_LENGTH(str) - 1)
 #define STRVIEW(string)     ((StringView) {.str=string, .len=(ARRAY_LENGTH(string) - 1)})
 #ifndef MIN
 #   define MIN(x, y)   ((y < x) ? y : x)
@@ -57,7 +54,6 @@ typedef struct ArgData_s {
     const void * ptr;
     DataType type;
     bool required;
-    // TODO make multiple negation nodes so it can negate multiple things
     mnllist_t * negations;
     struct ArgData_s * defaultData;
 } ArgData;
@@ -66,7 +62,6 @@ typedef struct MapData_s{
     const char * * names;
     int * nameLens;
     int namesLen;
-    // TODO maybe go back to this being a void pointer and have this stuff be on the process.h specificity
     ArgData data;
 } MapData;
 typedef struct MapNode_s{
@@ -89,7 +84,7 @@ void initMap(map_t * map);
 MapData * addMapMembers(map_t * map, const void * data, DataType type, bool setDefault, const char fmt[], ...);
 MapData * addMapMembers_fromList(map_t * map, const void * data, DataType type, sllist_t * head, int numKeys, bool setDefault);
 
-// TODO add check for if key in map
+// TODO maybe change from key, len to StringView
 const void * setMapMemberData(map_t * map, const void * data, const char * key, int len);
 
 bool hasNode(const map_t * map, const char * key, int len);

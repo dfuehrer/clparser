@@ -132,7 +132,7 @@ bool addMapKey(map_t * map, MapData * data, StringView sv, int * ind_ptr){
     // TODO consider modding (%) hash at the end to get it within the range of the size of the mapArray
     //  how things are set up now, hash cannot be longer so this step would either be ignored by the compiler or more likely waste computation
     //  maybe just bitmask to size since i used a power of 2?
-    //  or just cazt to uint8_t in my case?
+    //  or just cast to uint8_t in my case (which it already is)?
 
     // add node to map
     // if a node is already at this ind, set this node as the new head of th linked list

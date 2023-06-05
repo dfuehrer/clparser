@@ -7,17 +7,13 @@
 
 #define MAX_SHELL_LEN   10
 #define MAX_PROCCOMM_LEN    (6 + 10 + 5 + 1)    // /proc/ + ppid + /comm    + \000
-#define MAX_PROCCMDLINE_LEN  (6 + 10 + 8 + 1)    // /proc/ + ppid + /cmdline + \000
-
-// TODO clean up the new section and put it in a function thing
-// TODO prolly add in lists by separating by commas or something
-//  not exactly sure if this is helpful or anything but
-//  also lists arent really a thing in posix shell so i dont know what id expand them to
-//  using argparse in python lists are done with separate arguments so that might be a better way if i actually had a use for lists
-// TODO maybe make option to not override $@
+#define MAX_PROCCMDLINE_LEN (6 + 10 + 8 + 1)    // /proc/ + ppid + /cmdline + \000
 
 
 
+
+// TODO add multiple args support like nargs=+ from python argparse
+// TODO update return values to be unique (maybe overlap with map errors)
 
 // TODO go through this list of things and correct the things that are wrong and add features and things that i want
 // so the idea is that youll send in configuration stuffs over stdin and then have it take in the clargs as clargs and then itll output things that i guess are helpful based on the config stuffs sent in over stdin
@@ -54,11 +50,9 @@
 // run it like eval "$(echo "$spec" | clparser -- "$@")" and itll set the variables accordingly so you can use them without doing any parsing
 // error codes:
 // 1 not alphanumeric flags or parameter
-// 2 flags or parameter not defined
+// 2 flags and parameter not defined
 // 3 bad definitions
-// TODO im considering changing the structure to make it so command line args are possible for this program
-// i need to figure out a way to signal that the arguemnt is just for this parser and not what its working with
-//  that could work like echo "$spec" | clparser --args-for-parser -- "$@"
+// use structure echo "$spec" | clparser --args-for-parser -- "$@"
 //  in this case the arguments after -- are what needs to be parsed which makes the -- necessary (could make it something like -p or --parse instead of just --)
 //  (could have it assume to parse everything if there is no -- but that could be confusing if someone passes in a -- that wasnt exected and things are parsed wrong or it errors cause thats how that works)
 // if it hits a -- with no word after it should take that to mean everything after is default since that seems to be how most things would use it (this is less flexible in some ways but i dont want to deal with it)
@@ -110,7 +104,7 @@ int main(int argc, const char * const argv[]){
         if( parentCommandStr[comlen-1] == '\n'){
             parentCommandStr[comlen-1] =  '\000';
         }
-        // TODO xonsh seems to be more of a pain
+        // TODO xonsh seems to be more of a pain (appimage super doesnt work like this, actual install puts part of the script name in comm?)
         shellStr = parentCommandStr;
         shellNode->data.defaultData->ptr = shellStr;
     }
@@ -118,7 +112,7 @@ int main(int argc, const char * const argv[]){
         // TODO figure out a general way of getting the calling script
         //char * pcmdFilename = NULL;
         char pcmdFilename[MAX_PROCCMDLINE_LEN];
-        //asprintf(&pcmdFilename, "/proc/%d/comm", ppid);
+        //asprintf(&pcmdFilename, "/proc/%d/cmdline", ppid);
         snprintf(pcmdFilename, MAX_PROCCMDLINE_LEN, "/proc/%d/cmdline", ppid);
         FILE * pcmdFile = fopen(pcmdFilename, "r");
         //free(pcmdFilename);
@@ -189,8 +183,13 @@ int main(int argc, const char * const argv[]){
     char * cbuf = NULL;
     size_t n = 0;
     ssize_t len;
+    // TODO should i just use getdelim with \0?
     len = getline(&cbuf, &n, stdin);
     // TODO check that there wasnt an error
+    if(len == -1){
+        perror("read spec");
+        return 2;
+    }
     map_t flagMap, paramMap;
     initMap(&flagMap);
     initMap(&paramMap);
@@ -204,10 +203,10 @@ int main(int argc, const char * const argv[]){
 
     //addMapMembers(&flagMap, (void *)&flagFalse, BOOL, "sdsd", "help", 4, "h", 1);
 
-    // TODO dont error yet, not finding is only bad if we find neither
     // if the ferr is before or after the buff then we know theres no flags
     bool noflag = false;
     if(ferr == NULL){
+        fprintf(stderr, "error reading flags\n");
         return 3;
     } else if(ferr <= cbuf || ferr > ce){
         noflag = true;
@@ -226,15 +225,13 @@ int main(int argc, const char * const argv[]){
     // if didnt find params and no flag then return 1 this is bad
     if(perr == NULL){
         // if params errored on parsing then exit
-        // TODO print error message
+        fprintf(stderr, "error reading parameters\n");
         return 3;
     } else if((perr <= cbuf || perr > ce) && noflag){
-        // TODO figure out error
-        fprintf(stderr, "ill figure this error out later\n");
+        fprintf(stderr, "found neither flags nor parameters\n");
         return 2;
     }
 
-    // TODO pass in all these options in a struct
     ParsePrintOptions parseOpts = {
         .shell=shell,
         .useArgv=useArgv,
@@ -249,12 +246,8 @@ int main(int argc, const char * const argv[]){
 
     //bool help = getMapMember_bool(&flagMap, "help", 4);
     helpNode = getMapNode(&flagMap, "help", 4);
-    // TODO figure out whether we should do this
     if(helpNode != NULL && *(const bool *)helpNode->data.ptr){
     //if(hasNode(&flagMap, "help", 4) && getMapMember_bool(&flagMap, "help", 4)){
-        // TODO get the script name
-        // TODO have the help info not print out to stderr and instead give printf commands 
-        //printf(";\n");
         printUsage(&flagMap, &paramMap, progName);
         if(helpMessage != NULL){
             printHelp(&flagMap, &paramMap, helpMessage);

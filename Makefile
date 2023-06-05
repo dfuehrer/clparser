@@ -2,9 +2,17 @@ include config.mk
 
 # TODO figure out compiling a .so/.a lib so it can be included easier
 
-CFLAGS += -Wall -Wextra
+CFLAGS  += -Wall -Wextra
+ARFLAGS += -oU
 
-clparser : parseargs.o printargs.o map.o
+#clparser : parseargs.o printargs.o map.o
+clparser : printargs.o libparseargs.a
+
+(%) : % ;
+%.a :
+	$(AR) $(ARFLAGS) $@ $?
+libparseargs.a:  libparseargs.a(parseargs.o map.o)
+#libparseargs.so: parseargs.o map.o
 
 map.o: map.h
 parseargs.o: parseargs.h map.h
@@ -15,7 +23,7 @@ testmap: map.o
 PHONY : clean install
 
 clean :
-	rm -f ${OBJ} clparser *.o
+	rm -f ${OBJ} clparser *.o *.a *.so
 	
 install : clparser
 	mkdir -p ${DESTDIR}${PREFIX}/bin
