@@ -1,5 +1,5 @@
-#ifndef PROCESS_H
-#define PROCESS_H
+#ifndef PARSEARGS_H
+#define PARSEARGS_H
 
 #include "map.h"
 
@@ -21,8 +21,8 @@ typedef enum Errors_t {
 } Errors;
 
 // TODO are there any other shells i should try to support?
-// - elvish?
-// - powershell
+// - elvish? (no idea what this is, just saw it in a completion help thing on some program)
+// - powershell (id have to look into it, but this probably doesnt make sense becuase you probably want to just hook into the powershell get-help framework (if thats how that works)
 typedef enum {
     SH,
     BASH,
@@ -44,4 +44,4 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
 int printUsage(map_t * flagMap, map_t * paramMap, const char * progname);
 int printHelp(map_t * flagMap, map_t * paramMap, const char * helpMessage);
 
-#endif
+#endif  // PARSEARGS_H
