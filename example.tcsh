@@ -38,4 +38,6 @@ echo u       = "$u"
 echo nothing = "$nothing"
 echo zzz,z,Z = "$Z"
 #printf 'positional args: %s\n' "$*"
-printf 'positional args: %s\n' "$args"
+printf 'positional args:'
+printf " '%s'" $args:q
+printf '\n'

@@ -12,6 +12,7 @@ asdf = q param
 u    = something
 zzz  = a bunch of zs
 '
+#$help && exit
 # print out the raw output
 echo raw output:
 vars="$(echo "$spec" | ./clparser --help-msg "$helpmsg" -- "$@")"
@@ -33,4 +34,6 @@ echo u       = "${params[u]}"
 echo nothing = "${params[nothing]}"
 echo zzz,z,Z = "${params[Z]}"
 #printf 'positional args: %s\n' "$*"
-printf 'positional args: %s\n' "${args[*]}"
+printf 'positional args:'
+printf " '%s'" "${args[@]}"
+printf '\n'

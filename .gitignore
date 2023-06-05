@@ -8,4 +8,6 @@
 
 # build files
 *.o
+*.a
 clparser
+testmap
