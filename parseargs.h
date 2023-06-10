@@ -23,6 +23,7 @@ typedef enum Errors_t {
 // TODO are there any other shells i should try to support?
 // - elvish? (no idea what this is, just saw it in a completion help thing on some program)
 // - powershell (id have to look into it, but this probably doesnt make sense becuase you probably want to just hook into the powershell get-help framework (if thats how that works)
+// - awk (no idea if this is practical or possible or helpful but could be cool to just have an awk script with good command line options)
 typedef enum {
     SH,
     BASH,
@@ -33,15 +34,21 @@ typedef enum {
     XONSH,
 } Shell;
 
-char * parseArgSpec(char * buf, map_t * map, char argType[], void * defaultValue, DataType defaultType, bool allowDefaults);
+typedef struct {
+    bool print;
+    bool unknownPositional;
+} ParseArgsOptions;
+
+char * parseArgSpec(char * buf, map_t * map, char argType[], void * defaultValue, DataType defaultType, bool allowDefaults, MapData * * * const positionalArray);
 
 State setState(char * c);
 
 
-Errors parseArgs(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * positionalParams_ptr[]);
-Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * positionalParams_ptr[], bool print);
+Errors parseArgs(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, MapData * positionalNodes[], const char * * positionalParams_ptr[], bool unknownPositional);
+//Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, MapData * positionalNodes[], const char * * positionalParams_ptr[], const ParseArgsOptions * opts);
+Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, MapData * positionalNodes[], const char * * positionalParams_ptr[], bool unknownPositional, bool print);
 
-int printUsage(map_t * flagMap, map_t * paramMap, const char * progname);
-int printHelp(map_t * flagMap, map_t * paramMap, const char * helpMessage);
+int printUsage(const map_t * flagMap, const map_t * paramMap, const MapData * * positionalParams, const char * progname);
+int printHelp(const map_t * flagMap, const map_t * paramMap, const MapData * positionalParams[], const char * helpMessages);
 
 #endif  // PARSEARGS_H

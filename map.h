@@ -71,7 +71,8 @@ typedef struct MapNode_s{
 
 typedef struct map_s{
     MapNode * ptrArray[MAP_ARR_LEN];
-    int len;
+    int numKeys;
+    int numDatas;
 } map_t;
 
 static const bool flagFalse = false;
@@ -100,6 +101,7 @@ void setNodeNegation(MapData * data, MapData * negative);
 void freeMap(map_t * map);
 
 void popMapNode(map_t * map, const MapData * data);
+bool keyInNode(const MapData * data, const char * key, int len);
 
 void printMap(map_t * map);
 int printArgData(const ArgData * data, FILE * file);

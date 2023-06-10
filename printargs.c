@@ -8,6 +8,7 @@ typedef struct {
     Shell shell;
     char * arrayName;
     bool useNamespace;
+    bool noOutputEmpty;
 } PrintValueData;
 
 int printDeclareAssocArr(const char * arrayName, Shell shell){
@@ -40,44 +41,55 @@ int printShellVar(const char * key, int keylen, const char * arrayName, const Ar
         arrayName = "";
     }
     // in sh, csh, and fish, there are no associative arrays, so just set variables
-    switch(shell){
-        case CSH:
-            // TODO figure out how to generalize this..
-            if(useNamespace){
+    // TODO make no namespace always use plain variables and with namespace use assoc arrays if possible, prefix if not
+    //  - this option can be set by shell by default (shells without assoc arrays set namespace false, else true (unless given))
+    //  - may need second no-namespace flag or something like the override/maintain argv
+    if(useNamespace){
+        switch(shell){
+            case CSH:
+                // TODO figure out how to generalize this..
                 pre_fmt = "set %s_%.*s=";
-            }else{
-                arrayName = "";
-                pre_fmt = "set %s%.*s=";
-            }
-            break;
-        case FISH:
-            if(useNamespace){
+                break;
+            case FISH:
                 pre_fmt = "set %s_%.*s ";
-            }else{
-                arrayName = "";
-                pre_fmt = "set %s%.*s ";
-            }
-            break;
-        case BASH:
-        case ZSH:
-        case KSH:
-            pre_fmt = "%s[%.*s]=";
-            break;
-        case XONSH:
-            pre_fmt = "%s['%.*s']=";
-            break;
-        case SH:
-        default:
-            if(useNamespace){
+                break;
+            case BASH:
+            case ZSH:
+            case KSH:
+                pre_fmt = "%s[%.*s]=";
+                break;
+            case XONSH:
+                pre_fmt = "%s['%.*s']=";
+                break;
+            case SH:
+            default:
                 pre_fmt = "%s_%.*s=";
-            }else{
-                arrayName = "";
-                pre_fmt = "%s%.*s=";
-            }
-            break;
+                break;
+        }
+    }else{
+        switch(shell){
+            case CSH:
+                pre_fmt = "set %.*s=";
+                break;
+            case FISH:
+                pre_fmt = "set %.*s ";
+                break;
+            case BASH:
+            case ZSH:
+            case KSH:
+            case XONSH:
+            case SH:
+            default:
+                pre_fmt = "%.*s=";
+                break;
+        }
     }
     // pre_fmt has format for array name, key len, key, the value prefix
-    len += printf(pre_fmt, arrayName, keylen, key);
+    if(useNamespace){
+        len += printf(pre_fmt, arrayName, keylen, key);
+    }else{
+        len += printf(pre_fmt, keylen, key);
+    }
     len += printShellValue(data, shell);
     len += printf("\n");
     return len;
@@ -132,7 +144,7 @@ int printShellValue(const ArgData * data, Shell shell){
 }
 
 // print out values of a key in the map in shell syntax
-int printKeyValues(const MapData * node, const char * arrayName, Shell shell, bool useNameSpace){
+int printKeyValues(const MapData * node, PrintValueData * inputData){
     int len = 0;
     for(int i = 0; i < node->namesLen; ++i){
         const char * str = node->names[i];
@@ -142,7 +154,6 @@ int printKeyValues(const MapData * node, const char * arrayName, Shell shell, bo
         char * dashLoc = strchr(str, '-');
         if(dashLoc != NULL){
             // if found -, then duplicate str and replace all - with _
-            //tmpstr = strndup(str, node->nameLens[i]);
             strncpy(tmpstr, str, node->nameLens[i]);
             for(dashLoc += tmpstr - str; dashLoc != NULL; dashLoc = strchr(dashLoc, '-')){
                 dashLoc[0] = '_';
@@ -150,12 +161,7 @@ int printKeyValues(const MapData * node, const char * arrayName, Shell shell, bo
             str = tmpstr;
         }
         // print out the key='value' or key="$i" in POSIX sh synax
-        len += printShellVar(str, node->nameLens[i], arrayName, &node->data, shell, useNameSpace);
-        // TODO maybe handle this str so we dont free it multiple times in a loop
-        //if(tmpstr != NULL){
-        //    // if created tmp str to replace - then free it
-        //    free(tmpstr);
-        //}
+        len += printShellVar(str, node->nameLens[i], inputData->arrayName, &node->data, inputData->shell, inputData->useNamespace);
     }
     return len;
 }
@@ -282,19 +288,16 @@ int printArraySep(Shell shell, bool useArgv){
 int printKeyValuesWrapper(map_t * map, MapData * node, void * input){
     PrintValueData * printInput = input;
     (void) map;
-    return printKeyValues(node, printInput->arrayName, printInput->shell, printInput->useNamespace);
+    //return printKeyValues(node, printInput->arrayName, printInput->shell, printInput->useNamespace);
     // TODO maybe have an options for whether or not to output empty variables
     //  - in sh it is unnecessary and would mask the values of flags of the same names
     //      - sometimes nice to have flag to say "do this thing" with optional parameter of the same name that says how
     //  - of course, just using different names (or using the namespace option) will solve this issue, but its slightly less elegant
     //      - this does have to be an option because many shells will error if the variable isnt declared
-    //if(node->data.ptr != NULL){
-    //    return printKeyValues(node, printInput->arrayName, printInput->shell);
-    ////}else if(node->data.type == INT){
-    ////    free(node->data.ptr);
-    ////    node->data.ptr = NULL;
-    //}
-    //return 0;
+    if(printInput->noOutputEmpty && node->data.ptr == NULL){
+        return 0;
+    }
+    return printKeyValues(node, printInput);
 }
 
 int freeNodeInts(map_t * map, MapData * node, void * input){
@@ -308,9 +311,9 @@ int freeNodeInts(map_t * map, MapData * node, void * input){
 }
 
 // define function to parse args for sh (print)
-Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, ParsePrintOptions * parseOpts){
+Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, MapData * positionalNodes[], ParsePrintOptions * parseOpts){
     const char ** positionalParams = NULL;
-    Errors err = parseArgsBase(argc, argv, flagMap, paramMap, &positionalParams, true);
+    Errors err = parseArgsBase(argc, argv, flagMap, paramMap, positionalNodes, &positionalParams, parseOpts->unknownPositional, true);
 
     Shell shell  = parseOpts->shell;
     bool useArgv = parseOpts->useArgv;
@@ -319,14 +322,27 @@ Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap
         .shell          = shell,
         .arrayName      = "flags",
         .useNamespace   = parseOpts->useNamespace,
+        .noOutputEmpty  = parseOpts->noOutputEmpty,
     };
     printDeclareAssocArr(printInput.arrayName, shell);
     iterMapSingle(flagMap,  printKeyValuesWrapper, &printInput);
     printInput.arrayName = "params";
     printDeclareAssocArr(printInput.arrayName, shell);
     iterMapSingle(paramMap, printKeyValuesWrapper, &printInput);
+    printInput.arrayName = "positionals";
+    printDeclareAssocArr(printInput.arrayName, shell);
+    //for(MapData ** posParam_ptr = positionalNodes; *posParam_ptr != NULL; ++posParam_ptr){
+    //    printKeyValuesWrapper(NULL, *posParam_ptr, &printInput);
+    //}
     // free the ints now
     iterMapSingle(paramMap, freeNodeInts, NULL);
+    if(positionalNodes != NULL){
+        for(MapData ** posParam_ptr = positionalNodes; *posParam_ptr != NULL; ++posParam_ptr){
+            // TODO technically this could do the same thing as the args below instead of needing allocated args (this is going to be in order so it should work easily)
+            printKeyValuesWrapper(NULL, *posParam_ptr, &printInput);
+            freeNodeInts(NULL, *posParam_ptr, NULL);
+        }
+    }
 
     printInitArgs("args", shell, useArgv);
     int i = 1;

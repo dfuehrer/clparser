@@ -17,7 +17,7 @@ zzz  = a bunch of zs
 #wc /proc/$$/cmdline
 # print out the raw output
 echo raw output:
-vars="$(echo "$spec" | ./clparser -e --help-msg "$helpmsg" -- "$@")"
+vars="$(echo "$spec" | ./clparser --no-output-empty -e --help-msg "$helpmsg" -- "$@")"
 ec=$?
 printf '%s\n' "$vars"
 if [ "$ec" -ne 0 ]; then

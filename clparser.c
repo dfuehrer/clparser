@@ -66,20 +66,37 @@ int main(int argc, const char * const argv[]){
     int passedArgc;
     initMap(&flagMap_loc);
     initMap(&paramMap_loc);
-    MapData * helpNode         = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssd"  , STRVIEW("help"         ), "h", 1);
-    MapData * maintainArgvNode = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssd"  , STRVIEW("maintain-argv"), "a", 1);
-    MapData * overrideArgvNode = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssd"  , STRVIEW("override-argv"), "A", 1);
-    MapData * helpExitsNode    = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssd"  , STRVIEW("help-exits"   ), "e", 1);
-    MapData * useNamespaceNode = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssd"  , STRVIEW("namespace"    ), "n", 1);
-    MapData * helpMsgNode      = addMapMembers(&paramMap_loc, NULL      , STR , false, "Ssdsd", STRVIEW("help-msg"     ), "H", 1, "m", 1);
-    MapData * shellNode        = addMapMembers(&paramMap_loc, "default" , STR , true , "Ssdsd", STRVIEW("shell"        ), "S", 1, "s", 1);
-    MapData * progNameNode     = addMapMembers(&paramMap_loc, "default" , STR , true , "Ssd"  , STRVIEW("prog-name"    ), "p", 1);
+    // TODO add better support for positional parameters:
+    //  1.  flag to specify "stop parsing" (count rest of args as positional) if any positional arg found
+    //  2.  flag to specify "stop parsing" (count rest of args as positional) if any arg found that is not in the specification
+    //      - could encapsulate 1. if you explicitly specify 0 positional args (probably better this way)
+    //  3.  add something specific for positional parameters to be able to look up values
+    //      - eg: script file1 file2 [options] setting file1 to first arg and file2 to setcond arg rather than just an array
+    //      - need some way of specifying which position the arg should be filled by
+    //      - need to support both named positional args and existing array style
+    //      - maybe have parseArgs take in an array (NULL terminated) of MapData pointers of nodes of the positional args map, in the order of positional args
+    //          - get map nodes from return of addMapMembers, just add to array at end
+    //          - spec parser just parse like parameters but then create array (TODO should i make a new function or work around the assumptions of the existing one)
+    MapData * helpNode         = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssd"  , STRVIEW("help"              ), "h", 1);
+    MapData * maintainArgvNode = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssd"  , STRVIEW("maintain-argv"     ), "a", 1);
+    MapData * overrideArgvNode = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssd"  , STRVIEW("override-argv"     ), "A", 1);
+    MapData * helpExitsNode    = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssd"  , STRVIEW("help-exits"        ), "e", 1);
+    MapData * useNamespaceNode = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssd"  , STRVIEW("namespace"         ), "n", 1);
+    MapData *  noNamespaceNode = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssd"  , STRVIEW("no-namespace"      ), "N", 1);
+    MapData * noOutEmptyNode   = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssd"  , STRVIEW("no-output-empty"   ), "E", 1);
+    MapData * unkIsPosNode     = addMapMembers(& flagMap_loc, &flagFalse, BOOL, false, "Ssdsd", STRVIEW("unknown-positional"), "u", 1, "P", 1);
+    MapData * helpMsgNode      = addMapMembers(&paramMap_loc, NULL      , STR , false, "Ssdsd", STRVIEW("help-msg"          ), "H", 1, "m", 1);
+    MapData * shellNode        = addMapMembers(&paramMap_loc, "default" , STR , true , "Ssdsd", STRVIEW("shell"             ), "S", 1, "s", 1);
+    MapData * progNameNode     = addMapMembers(&paramMap_loc, "default" , STR , true , "Ssd"  , STRVIEW("prog-name"         ), "p", 1);
     setNodeNegation(maintainArgvNode, overrideArgvNode);
     setNodeNegation(overrideArgvNode, maintainArgvNode);
-    //setNodeNegation(useNamespaceNode, maintainArgvNode);
+    setNodeNegation(useNamespaceNode,  noNamespaceNode);
+    setNodeNegation( noNamespaceNode, useNamespaceNode);
     //helpMsgNode->data.required = false;     // this isnt really super required
 
-    Errors retVal = parseArgs(argc - 1, argv + 1, &flagMap_loc, &paramMap_loc, &passedArgs);
+    // TODO should clparser parse given input args if they don't match clparser args?
+    //  - this would sorta be nice but would just be way to error prone that it wouldn't really be worth it
+    Errors retVal = parseArgs(argc - 1, argv + 1, &flagMap_loc, &paramMap_loc, NULL, &passedArgs, false);
     if(retVal != Success){
         fprintf(stderr, "error parsing args: %d\n", retVal);
         return retVal;
@@ -93,12 +110,9 @@ int main(int argc, const char * const argv[]){
     pid_t ppid = getppid();
     if(strcmp(shellStr, "default") == 0){
         // TODO figure out a general way of getting the calling process name
-        //char * pcmdFilename = NULL;
         char pcmdFilename[MAX_PROCCOMM_LEN];
-        //asprintf(&pcmdFilename, "/proc/%d/comm", ppid);
         snprintf(pcmdFilename, MAX_PROCCOMM_LEN, "/proc/%d/comm", ppid);
         FILE * pcmdFile = fopen(pcmdFilename, "r");
-        //free(pcmdFilename);
         fgets(parentCommandStr, MAX_SHELL_LEN, pcmdFile);
         int comlen = strlen(parentCommandStr);
         if( parentCommandStr[comlen-1] == '\n'){
@@ -110,12 +124,9 @@ int main(int argc, const char * const argv[]){
     }
     if(strcmp(progName, "default") == 0){
         // TODO figure out a general way of getting the calling script
-        //char * pcmdFilename = NULL;
         char pcmdFilename[MAX_PROCCMDLINE_LEN];
-        //asprintf(&pcmdFilename, "/proc/%d/cmdline", ppid);
         snprintf(pcmdFilename, MAX_PROCCMDLINE_LEN, "/proc/%d/cmdline", ppid);
         FILE * pcmdFile = fopen(pcmdFilename, "r");
-        //free(pcmdFilename);
         size_t n = 0;
         char * cmdline = NULL;
         // call getline twice to get the first arg (script filename)
@@ -128,21 +139,24 @@ int main(int argc, const char * const argv[]){
 
     if(*(const bool *)helpNode->data.ptr){
         // TODO have the help info not print out to stderr
-        printUsage(&flagMap_loc, &paramMap_loc, argv[0]);
+        printUsage(&flagMap_loc, &paramMap_loc, NULL, argv[0]);
         fprintf(stderr, "\tclparser takes in command line arguments to parse as command line arguments and a specification\n");
         fprintf(stderr, "\tfor which command line arguments should exist from stdin, and outputs shell code to set variables\n");
         fprintf(stderr, "\tset from the command line arguments to stdout.  Command line arguments to be parsed should be\n");
         fprintf(stderr, "\tgiven after --.  This will prevent the command line arguments to be parsed from being interpreted\n");
         fprintf(stderr, "\tas clparser command line arguments.  See the man page or README.md for more details\n");
-        printHelp(&flagMap_loc, &paramMap_loc,
-                "help          = print this help message\n\
-                 maintain-argv = do not override argv\n\
-                 override-argv = do     override argv\n\
-                 namespace     = namespace args by prepending flags_ or params_ to the variable names\n\
-                 shell         = which shell syntax to use (sh, bash, zsh, ksh, csh, fish, xonsh) (default to calling shell)\n\
-                 prog-name     = name of program to display in --help usage message\n\
-                 help-exits    = exit after printing the help message (default to path of script called (first arg of cmdline of calling shell))\n\
-                 help-msg      = some sort of string of help messages for args");
+        printHelp(&flagMap_loc, &paramMap_loc, NULL,
+                "help               = print this help message\n\
+                 maintain-argv      = do not override argv\n\
+                 override-argv      = do     override argv\n\
+                 namespace          = namespace args by using associative arrays if available or prepending flags_ or params_ to the variable names\n\
+                 no-namespace       = do not use associative arrays or prefixes on variable names\n\
+                 no-output-empty    = don't output parameters that aren't given\n\
+                 unknown-positional = if an unknown argument is seen, treat all following arguments as positional arguments\n\
+                 shell              = which shell syntax to use (sh, bash, zsh, ksh, csh, fish, xonsh) (default to calling shell)\n\
+                 prog-name          = name of program to display in --help usage message\n\
+                 help-exits         = exit after printing the help message (default to path of script called (first arg of cmdline of calling shell))\n\
+                 help-msg           = some sort of string of help messages for args");
         return 1;
     }
 
@@ -167,14 +181,38 @@ int main(int argc, const char * const argv[]){
         shell = XONSH;
     }
 
-    bool useNamespace =  *(const bool *)useNamespaceNode->data.ptr;
     bool helpExits =  *(const bool *)helpExitsNode   ->data.ptr;
     bool useArgv   =  *(const bool *)overrideArgvNode->data.ptr;
     if( !useArgv &&  !*(const bool *)maintainArgvNode->data.ptr && shell == SH){
         // if didnt set override or maintain argv, then default to maintain unless using SH since it has no arrays
-        // so the only way to maintain whitespace is to use argv
+        // (so the only way to maintain whitespace in sh is to use argv)
         useArgv = true;
     }
+    bool useNamespace =   *(const bool *)useNamespaceNode->data.ptr;
+    if( !useNamespace && !*(const bool *) noNamespaceNode->data.ptr){
+        // if didnt set use/don't use namespace, then default to use namespace unless using SH, CSH, or FISH since they have no associative arrays
+        switch(shell){
+            case CSH:
+            case FISH:
+            case SH:
+                useNamespace = false;
+                break;
+            case BASH:
+            case ZSH:
+            case KSH:
+            case XONSH:
+            default:
+                useNamespace = true;
+                break;
+        }
+    }
+    ParsePrintOptions parseOpts = {
+        .shell=shell,
+        .useArgv=useArgv,
+        .useNamespace=useNamespace,
+        .noOutputEmpty=*(const bool *)noOutEmptyNode->data.ptr,
+        .unknownPositional=*(const bool *)unkIsPosNode->data.ptr,
+    };
 
     // free the maps, should be done with the info now
     freeMap(&flagMap_loc);
@@ -190,54 +228,62 @@ int main(int argc, const char * const argv[]){
         perror("read spec");
         return 2;
     }
-    map_t flagMap, paramMap;
+    map_t flagMap, paramMap, posMap;
     initMap(&flagMap);
     initMap(&paramMap);
+    initMap(&posMap);
 
     // let me think about what im doing here
     // ferr is a pointer to the char after the ; ending the flags or whatever error happened
     char * ce = cbuf + len;
     // find all flag params, make the default value "0" (false)
-    char * ferr = parseArgSpec(cbuf, &flagMap, "flags:", (void *)&flagFalse, BOOL, false);
+    char * ferr = parseArgSpec(cbuf, &flagMap, "flags:", (void *)&flagFalse, BOOL, false, NULL);
     //printMap(&flagMap);
 
     //addMapMembers(&flagMap, (void *)&flagFalse, BOOL, "sdsd", "help", 4, "h", 1);
 
     // if the ferr is before or after the buff then we know theres no flags
     bool noflag = false;
+    bool noparam = false;
     if(ferr == NULL){
         fprintf(stderr, "error reading flags\n");
         return 3;
     } else if(ferr <= cbuf || ferr > ce){
         noflag = true;
     }
-    char * pcbuf;
-
-    // find the last ; and see if ferr is there or not
-    for(pcbuf = ce-1; (*pcbuf != ';') && (*pcbuf != '\0') && (pcbuf > cbuf); --pcbuf);
-    // if ferr (end of flags) at pcbuf (last ;) then params should be at the beginning, otherwise start at ferr
-    pcbuf = (pcbuf+1 == ferr || noflag) ? cbuf : ferr;
 
     // puts("params now");
-    //char * perr = linkParams(pcbuf, &paramHead, "parameters:");
-    char * perr = parseArgSpec(pcbuf, &paramMap, "parameters:", NULL, STR, true);
+    char * perr = parseArgSpec(cbuf, &paramMap, "parameters:", NULL, STR, true, NULL);
     //printMap(&paramMap);
     // if didnt find params and no flag then return 1 this is bad
     if(perr == NULL){
         // if params errored on parsing then exit
         fprintf(stderr, "error reading parameters\n");
         return 3;
-    } else if((perr <= cbuf || perr > ce) && noflag){
-        fprintf(stderr, "found neither flags nor parameters\n");
-        return 2;
+    } else if(perr <= cbuf || perr > ce){
+        noparam = true;
     }
 
-    ParsePrintOptions parseOpts = {
-        .shell=shell,
-        .useArgv=useArgv,
-        .useNamespace=useNamespace,
-    };
-    retVal = parseArgsPrint(passedArgc, passedArgs, &flagMap, &paramMap, &parseOpts);
+    MapData * * positionalParamNodes = NULL;
+    perr = parseArgSpec(cbuf, &posMap, "positionals:", NULL, STR, true, &positionalParamNodes);
+    //printMap(&paramMap);
+    // if didnt find params and no flag then return 1 this is bad
+    if(perr == NULL){
+        // if params errored on parsing then exit
+        fprintf(stderr, "error reading positionals\n");
+        return 3;
+    } else if(perr <= cbuf || perr > ce){
+        // if didnt get pos params, then free it rather than having explicit 0 positionals defined
+        free(positionalParamNodes);
+        positionalParamNodes = NULL;
+        fprintf(stderr, "got no positionals\n");
+        if(noflag && noparam){
+            fprintf(stderr, "found neither flags nor parameters nor positionals\n");
+            return 2;
+        }
+    }
+
+    retVal = parseArgsPrint(passedArgc, passedArgs, &flagMap, &paramMap, positionalParamNodes, &parseOpts);
     // TODO do some stuffs and figure out the errors
     //  - probably exit with this exit code specifically
     //if(retVal != Success){
@@ -248,9 +294,9 @@ int main(int argc, const char * const argv[]){
     helpNode = getMapNode(&flagMap, "help", 4);
     if(helpNode != NULL && *(const bool *)helpNode->data.ptr){
     //if(hasNode(&flagMap, "help", 4) && getMapMember_bool(&flagMap, "help", 4)){
-        printUsage(&flagMap, &paramMap, progName);
+        printUsage(&flagMap, &paramMap, positionalParamNodes, progName);
         if(helpMessage != NULL){
-            printHelp(&flagMap, &paramMap, helpMessage);
+            printHelp(&flagMap, &paramMap, positionalParamNodes, helpMessage);
         }
         if(helpExits){
             printExit(shell);
@@ -260,6 +306,10 @@ int main(int argc, const char * const argv[]){
 
     freeMap(&flagMap);
     freeMap(&paramMap);
+    freeMap(&posMap);
+    if(positionalParamNodes != NULL){
+        free(positionalParamNodes);
+    }
 
     free(cbuf);
     if(allocatedProgName){

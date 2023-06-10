@@ -7,6 +7,7 @@
 #include "parseargs.h"
 
 #define ARG_SPACE   (50)
+#define ARRAY_ALLOC_INCR    (10)
 
 
 typedef struct nllist_s {
@@ -30,7 +31,7 @@ typedef struct nllist_s {
 //  - now that i think about it i dont have a way of putting together the variadic arvuments so i need another interface
 // then parse the args by setting stuff in the maps and getting stuff from the maps
 // TODO maybe move this to the printing side cause it doesnt make sense to use this here
-char * parseArgSpec(char * buf, map_t * map, char argType[], void * defaultValue, DataType defaultType, bool allowDefaults){
+char * parseArgSpec(char * buf, map_t * map, char argType[], void * defaultValue, DataType defaultType, bool allowDefaults, MapData * * * const positionalArray){
     // create all the links and variables
     // also figure out dynamically creating all these linked list node things
     char * typeptr = strstr(buf, argType);
@@ -43,9 +44,14 @@ char * parseArgSpec(char * buf, map_t * map, char argType[], void * defaultValue
         fprintf(stderr, "spec must end in ';', but got '%s'\n", buf);
         return NULL;        // there has to be a semicolon to end the definition    (should check for a NULL to err immediately)
     }
+    int posArrLen = 0;
+    int posArrSize = 0;
     char * c = typeptr;
     for( ; *c == ' '; c++);
     char * ce = c + 1;
+    if(*c == ';'){
+        return c;
+    }
     // i guess for this i want different values like
     // 1 was a space so were on   a  new set of values
     // 2 was a comma so were on the same set of values
@@ -72,7 +78,7 @@ char * parseArgSpec(char * buf, map_t * map, char argType[], void * defaultValue
             nextState = setState(ce);
             // if the next state is error then exit unless were on the last line
             if(nextState == Error && (state != Semicolon)){
-                fprintf(stderr, "spec got bad value '%c' before end with ';'", *ce);
+                fprintf(stderr, "spec got bad value '%c' before end with ';'\n", *ce);
                 return NULL;
             }
             // add a new node onto the linked list
@@ -131,6 +137,22 @@ char * parseArgSpec(char * buf, map_t * map, char argType[], void * defaultValue
             for(nllist_t * negNode = negHead; negNode != NULL && negNode->origNode == NULL; negNode = negNode->next){
                 negNode->origNode = mapNode;
             }
+        }
+        if(positionalArray != NULL){
+            if(posArrLen >= posArrSize - 1){
+                // allocate larger array when full
+                fprintf(stderr, "allocating pos array\n");
+                posArrSize += ARRAY_ALLOC_INCR;
+                *positionalArray = (MapData **) realloc(*positionalArray, posArrSize * sizeof (MapData *));
+                if(*positionalArray == NULL){
+                    perror("allocating positional node array");
+                    return NULL;
+                }
+                // clear out the rest of the array
+                memset(*positionalArray + posArrLen, 0, (posArrSize - posArrLen) * sizeof (MapData *));
+            }
+            (*positionalArray)[posArrLen] = mapNode;
+            ++posArrLen;
         }
     }
     // cleanup the list
@@ -192,28 +214,32 @@ State setState(char * c){
     return state;
 }
 
-Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * positionalParams_ptr[], bool print){
+Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, MapData * positionalNodes[], const char * * positionalParams_ptr[], bool unknownPositional, bool print){
 
     // positionalParams_ptr is a ptr to an array of positional args
     // TODO maybe try to accomodate if positionalParams_ptr is NULL
     *positionalParams_ptr = (const char **) calloc((argc+1), sizeof (const char *));
     memset(*positionalParams_ptr, (long) NULL, argc+1);
     const char ** thisDef = *positionalParams_ptr;
+    MapData ** thisPosNode = positionalNodes;
 
+    //bool unknownPositional = opts->unknownPositional;
+    //bool print = opts->print;
     bool checkFlags;
+    bool allPositional = false;
 
     //for(int i = 1; i < argc; ++i){
     for(int i = 0; i < argc; ++i){
+        //printf("on arg '%s'\n", argv[i]);
         checkFlags = true;
-        // if arg starts with - then its a single letter / word param
-        if(argv[i][0] == '-'){
+        // if arg starts with - and has other characters, then its a single letter / word param
+        if(!allPositional && argv[i][0] == '-' && argv[i][1] != '\000'){
             // if second char is not - then its a single letter params
             if(argv[i][1] != '-'){
                 // this is a single letter flag so loop through all the next letters
-                //printf("sing let:\t");
-                //puts(argv[i]);
+                //fprintf(stderr, "sing let:\t'%s'\n", argv[i]);
                 for(const char * f = argv[i] + 1; *f; f++){
-                    //printf("let:\t%c\n", *f);
+                    //printf("let:\t'%c'\n", *f);
                     if(!isalnum(*f)){
                         fprintf(stderr, "char '%c' in %s not allowed\n", *f, argv[i]);
                         return NotAlnum;   // error if f not alphanumeric
@@ -249,6 +275,11 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                     if(checkFlags){                  // i think the only other option is its a flag
                         MapData * node = getMapNode(flagMap, f, 1);
                         if(node == NULL){
+                            if(unknownPositional){
+                                allPositional = true;
+                                --i;
+                                continue;
+                            }
                             //puts("didnt find");
                             fprintf(stderr, "did not find '%c' as either a flag or param\n", *f);
                             return DidNotFind;       // didnt find it
@@ -261,19 +292,12 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                         }
                     }
                 }
-            }else if(argv[i][2] == '\000'){
-                // if this arg is just '--', then all the rest of the args are just default vals, dont parse
-                for(++i; i < argc; ++i, ++thisDef){
-                    *thisDef = argv[i];
-                }
-                break;
-            }else{
+            }else if(argv[i][2] != '\000'){
                 // this is a word thign
                 const char * word = argv[i] + 2;
                 const char * val  = NULL;
                 int wordlen = -1;
-                //printf("word:\t");
-                //puts(word);
+                //fprintf(stderr, "word:\t'%s'\n", word);
                 bool isAlnum = true;
                 for(const char * c = word; *c && isAlnum; c++){
                     if(*c == '='){
@@ -310,6 +334,8 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                                 node->data.ptr  = varnum;
                                 node->data.type = INT;
                             }else{
+                                // TODO maybe see if theres a way we can just grab it from the arg like ${i#--arg} is sh
+                                // - this has the issue that the user could put a ' in the string and it would screw up the variable definition
                                 node->data.ptr  = val;
                                 node->data.type = STR;
                             }
@@ -334,6 +360,11 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                 if(checkFlags){                                          // i think the only other option is its a flag
                     MapData * node = getMapNode(flagMap, word, wordlen);
                     if(node == NULL){
+                        if(unknownPositional){
+                            allPositional = true;
+                            --i;
+                            continue;
+                        }
                         //puts("didnt find");
                         fprintf(stderr, "did not find '%s' as either a flag or param\n", word);
                         return DidNotFind;       // didnt find it
@@ -346,11 +377,45 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
                         negNode->data->data.type = BOOL;
                     }
                 }
+            }else{
+                // if this arg is just '--', then all the rest of the args are just default vals, dont parse
+                //for(++i; i < argc; ++i, ++thisDef){
+                //    *thisDef = argv[i];
+                //}
+                //break;
+                allPositional = true;
+                continue;
             }
         }else{
             // this is a default
-            //printf("default:\t");
+            //fprintf(stderr, "default:\t %s\n", argv[i]);
             *thisDef = argv[i];
+            if(thisPosNode != NULL){
+                if(*thisPosNode != NULL){
+                    if(print){
+                        // set node value to this argv ind to use for $i var
+                        int * varnum = (int *) calloc(1, sizeof (int));
+                        *varnum = i + 1;
+                        (*thisPosNode)->data.ptr  = varnum;
+                        (*thisPosNode)->data.type = INT;
+                    }else{
+                        if((*thisPosNode)->data.type == INT){
+                            int * num = (int *) calloc(1, sizeof (int));
+                            *num = strtol(*thisDef, NULL, 0);
+                            (*thisPosNode)->data.ptr = num;
+                        }else{
+                            (*thisPosNode)->data.ptr  = *thisDef;
+                            (*thisPosNode)->data.type = STR;
+                        }
+                    }
+                    ++thisPosNode;
+                //}else if(!allPositional && unknownPositional && positionalNodes[0] == NULL){
+                }else if(!allPositional && unknownPositional){
+                    // if the positional nodes array is present (not NULL) but empty (first element is NULL)
+                    // then this is an unknown argument, so treat rest of args as positional
+                    allPositional = true;
+                }
+            }
             //puts(*thisDef);
             ++thisDef;
         }
@@ -361,41 +426,51 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
 
 
 // define function to parse args for C lib (no printing)
-Errors parseArgs(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, const char * * positionalParams_ptr[]){
-    return parseArgsBase(argc, argv, flagMap, paramMap, positionalParams_ptr, false);
+Errors parseArgs(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, MapData * positionalNodes[], const char * * positionalParams_ptr[], bool unknownPositional){
+    return parseArgsBase(argc, argv, flagMap, paramMap, positionalNodes, positionalParams_ptr, unknownPositional, false);
 }
 
 
-int printFlags(MapData * node, FILE * file){
+int printFlag(const MapData * node, FILE * file){
     int len = fprintf(file, " [ ");
+    char sep = '|';
     for(int i = 0; i < node->namesLen; ++i){
+        if(i == node->namesLen - 1){
+            sep = ' ';
+        }
         if(node->nameLens[i] == 1){
-            len += fprintf(file, "-%c ", node->names[i][0]);
+            len += fprintf(file, "-%c%c", node->names[i][0], sep);
         }else{
-            len += fprintf(file, "--%.*s ", node->nameLens[i], node->names[i]);
+            len += fprintf(file, "--%.*s%c", node->nameLens[i], node->names[i], sep);
         }
     }
     len += fprintf(file, "]");
     return len;
 }
-int printFlagsWrapper(map_t * map, MapData * node, void * input){
+int printFlagWrapper(map_t * map, MapData * node, void * input){
     FILE * outFile = (FILE *) input;
     (void) map;
-    return printFlags(node, outFile);
+    return printFlag(node, outFile);
 }
 
-int printParams(MapData * node, FILE * file, bool optional){
+int printParam(const MapData * node, FILE * file){
     int i;
     int lastWordInd = 0;
     int len  = fprintf(file, " ");
+    const bool optional = !node->data.required || node->data.defaultData != NULL;
     if(optional){
         len += fprintf(file, "[ ");
     }
+    char sep = '|';
     for(i = 0; i < node->namesLen; ++i){
+        if(i == node->namesLen - 1){
+            sep = ' ';
+        }
+        // TODO print | between the args instead of spaces
         if(node->nameLens[i] == 1){
-            len += fprintf(file, "-%c ", node->names[i][0]);
+            len += fprintf(file, "-%c%c", node->names[i][0], sep);
         }else{
-            len += fprintf(file, "--%.*s ", node->nameLens[i], node->names[i]);
+            len += fprintf(file, "--%.*s%c", node->nameLens[i], node->names[i], sep);
             lastWordInd = i;
         }
     }
@@ -409,13 +484,38 @@ int printParams(MapData * node, FILE * file, bool optional){
     }
     return len;
 }
-int printParamsWrapper(map_t * map, MapData * node, void * input){
+int printParamWrapper(map_t * map, MapData * node, void * input){
     FILE * outFile = (FILE *) input;
     (void) map;
-    return printParams(node, outFile, !node->data.required);
+    return printParam(node, outFile);
 }
 
-int printUsage(map_t * flagMap, map_t * paramMap, const char * progname){
+int printPositionalParam(const MapData * node, FILE * file){
+    int i;
+    int firstWordInd = 0;
+    int len  = fprintf(file, " ");
+    const bool optional = !node->data.required || node->data.defaultData != NULL;
+    if(optional){
+        len += fprintf(file, "[ ");
+    }
+    for(i = 0; i < node->namesLen; ++i){
+        if(node->nameLens[i] > 1){
+            firstWordInd = i;
+            break;
+        }
+    }
+    len += fprintf(file, "%.*s", node->nameLens[firstWordInd], node->names[firstWordInd]);
+    if(node->data.defaultData != NULL && node->data.defaultData->ptr != NULL){
+        len += fprintf(file, " = ");
+        len += printArgData(node->data.defaultData, file);
+    }
+    if(optional){
+        len += fprintf(file, " ]");
+    }
+    return len;
+}
+
+int printUsage(const map_t * flagMap, const map_t * paramMap, const MapData * positionalParams[], const char * progname){
     FILE * outFile = stderr;
     //FILE * outFile = stdout;
     int len = 0;
@@ -423,15 +523,22 @@ int printUsage(map_t * flagMap, map_t * paramMap, const char * progname){
         error(3, 0, "Must specify progname for printing usage");
     }
     len += fprintf(outFile, "Usage:\t%s", progname);
-    len += iterMapSingle(flagMap , printFlagsWrapper , outFile);
-    len += iterMapSingle(paramMap, printParamsWrapper, outFile);
+    // just casting these const maps the (map_t *) because i know the print functions dont modify the map (and i dont feel like copying the map function just to have a const and non-const version of it
+    len += iterMapSingle((map_t *)flagMap , printFlagWrapper , outFile);
+    len += iterMapSingle((map_t *)paramMap, printParamWrapper, outFile);
+    // TODO do positional args normally go before or after flags/params (of course its totally arbitrary with my parser)
+    if(positionalParams != NULL){
+        for(const MapData ** posParam = positionalParams; *posParam != NULL; ++posParam){
+            len += printPositionalParam(*posParam, outFile);
+        }
+    }
     len += fprintf(outFile, "\n");
     return len;
 }
 
 // TODO make this function format the strings (just line wrapping nicely)
 //  - include the terminal width in this formatting too
-int printHelp(map_t * flagMap, map_t * paramMap, const char * helpMessages){
+int printHelp(const map_t * flagMap, const map_t * paramMap, const MapData * positionalParams[], const char * helpMessages){
     FILE * outFile = stderr;
     //FILE * outFile = stdout;
     const char * key;
@@ -483,19 +590,26 @@ int printHelp(map_t * flagMap, map_t * paramMap, const char * helpMessages){
         }
         msgLen = lastSpace - msg;
         // get node from key
-        MapData * node = getMapNode(paramMap, key, keyLen);
+        const MapData * node = getMapNode(paramMap, key, keyLen);
         int printedLen = 0;
         // print node arg
         if(node != NULL){
-            //bool optional = (strstr(helpText, "optional") != NULL);
-            printedLen = printParams(node, outFile, !node->data.required);
+            printedLen = printParam(node, outFile);
+        }else if((node = getMapNode(flagMap, key, keyLen)) != NULL){
+            printedLen = printFlag(node, outFile);
         }else{
-            // if didnt find node as param, try finding as flag
-            node = getMapNode(flagMap, key, keyLen);
+            if(positionalParams == NULL){
+                const MapData ** node_ptr;
+                for(node_ptr = positionalParams; *node_ptr != NULL; ++node_ptr){
+                    if(keyInNode(*node_ptr, key, keyLen)){
+                        node = *node_ptr;
+                        break;
+                    }
+                }
+            }
             if(node == NULL){
                 error(7, 0, "key '%.*s' does not exist in map", keyLen, key);
             }
-            printedLen = printFlags(node, outFile);
         }
         // print help message
         len += printedLen;

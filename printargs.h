@@ -6,10 +6,12 @@
 typedef struct {
     Shell shell;
     bool useArgv;
+    bool noOutputEmpty;
     bool useNamespace;
+    bool unknownPositional;
 } ParsePrintOptions;
 
-Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, ParsePrintOptions * parseOpts);
+Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap, map_t * paramMap, MapData * positionalNodes[], ParsePrintOptions * parseOpts);
 
 int printExit(Shell shell);
 

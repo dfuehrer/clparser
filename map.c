@@ -81,6 +81,7 @@ MapData * addMapMembers(map_t * map, const void * data, DataType type, bool setD
         error(6, 0, "map key needs at least 1 str,len pair to add a member");
         return NULL;
     }
+    ++map->numDatas;
 
     va_end(args);
     return nodeData;
@@ -104,6 +105,7 @@ MapData * addMapMembers_fromList(map_t * map, const void * data, DataType type, 
         error(6, 0, "map key needs at least 1 str,len pair to add a member");
         return NULL;
     }
+    ++map->numDatas;
     return nodeData;
 }
 
@@ -127,7 +129,6 @@ bool addMapKey(map_t * map, MapData * data, StringView sv, int * ind_ptr){
 
     MapNode * node = (MapNode *) calloc(1, sizeof (MapNode));
     node->data = data;
-    node->next = NULL;
 
     // TODO consider modding (%) hash at the end to get it within the range of the size of the mapArray
     //  how things are set up now, hash cannot be longer so this step would either be ignored by the compiler or more likely waste computation
@@ -135,14 +136,12 @@ bool addMapKey(map_t * map, MapData * data, StringView sv, int * ind_ptr){
     //  or just cast to uint8_t in my case (which it already is)?
 
     // add node to map
-    // if a node is already at this ind, set this node as the new head of th linked list
-    if(map->ptrArray[hash] != NULL){
-        node->next = map->ptrArray[hash];
-    }
+    // if a node is already at this ind, set this node as the new head of th linked list (otherwise it should be NULL, which indicates the end of the linked list)
+    node->next = map->ptrArray[hash];
     map->ptrArray[hash] = node;
 
     ++(*ind_ptr);
-    ++map->len;
+    ++map->numKeys;
     return true;
 }
 
@@ -159,15 +158,20 @@ MapData * getMapNode(const map_t * map, const char * key, int len){
     //printf("key: '%.*s', hash: %d\n", len, key, hash);
     for(MapNode * node = map->ptrArray[hash]; node != NULL; node = node->next){
         //printf("first key %.*s\n", node->nameLens[0], node->names[0]);
-        MapData * data = node->data;
-        for(int i = 0; i < data->namesLen; ++i){
-            if(data->nameLens[i] == len && !strncmp(key, data->names[i], MIN(len, data->nameLens[i]))){
-                return data;
-            }
+        if(keyInNode(node->data, key, len)){
+            return node->data;
         }
     }
     //fprintf(stderr, "didnt find node for key '%.*s'\n", len, key);
     return NULL;
+}
+bool keyInNode(const MapData * data, const char * key, int len){
+    for(int i = 0; i < data->namesLen; ++i){
+        if(data->nameLens[i] == len && !strncmp(key, data->names[i], MIN(len, data->nameLens[i]))){
+            return true;
+        }
+    }
+    return false;
 }
 
 const void * setMapMemberData(map_t * map, const void * data, const char * key, int len){
@@ -226,15 +230,15 @@ int printArgData(const ArgData * data, FILE * file){
     }
     switch(data->type){
         case STR:
-            return fprintf(file, "%s", (char *) data->ptr);
+            return fprintf(file, "%s",   (char *) data->ptr);
         case STRING_VIEW:
             return fprintf(file, "%.*s", ((StringView *) data->ptr)->len, ((StringView *) data->ptr)->str);
         case BOOL:
             return fprintf(file, "%s", (*(bool *) data->ptr) ? "true\0" : "false");
         case INT:
-            return fprintf(file, "%d", *(int *) data->ptr);
+            return fprintf(file, "%d",  *(int  *) data->ptr);
         case CHAR:
-            return fprintf(file, "%c", *(char *) data->ptr);
+            return fprintf(file, "%c",  *(char *) data->ptr);
     }
     return 0;
 }
@@ -257,7 +261,7 @@ void printMap(map_t * map){
 }
 
 int iterMap(map_t * map, MapIterFunc_t mapIterFunc, void * funcInput){
-    if(map == NULL || map->len == 0){
+    if(map == NULL || map->numKeys == 0){
         return 0;
     }
     // TODO maybe have some way of indicating the first time or something (maybe just pass in i as well)
@@ -268,20 +272,20 @@ int iterMap(map_t * map, MapIterFunc_t mapIterFunc, void * funcInput){
             ++count;
             total += mapIterFunc(map, node->data, funcInput);
         }
-        if(count == map->len){
+        if(count == map->numKeys){
             break;
         }
     }
     return total;
 }
 int iterMapSingle(map_t * map, MapIterFunc_t mapIterFunc, void * funcInput){
-    if(map == NULL || map->len == 0){
+    if(map == NULL || map->numKeys == 0){
         return 0;
     }
     // allocating space for whole map in case its needed
-    //const MapData * * data_ptrs = calloc(map->len  , sizeof (const MapData *));
-    const MapData * data_ptrs[map->len];
-    memset(data_ptrs, (long) NULL,      (map->len) * sizeof (const MapData *));
+    //const MapData * * data_ptrs = calloc(map->numDatas  , sizeof (const MapData *));
+    const MapData * data_ptrs[map->numDatas];
+    memset(data_ptrs, (long) NULL,      (map->numDatas) * sizeof (const MapData *));
     int ptrsLen = 0;
     int total = 0;
     int count = 0;
@@ -289,20 +293,23 @@ int iterMapSingle(map_t * map, MapIterFunc_t mapIterFunc, void * funcInput){
     for(int i = 0; i < MAP_ARR_LEN; ++i){
         for(MapNode * node = map->ptrArray[i]; node != NULL; node = node->next){
             ++count;
-            bool skip = false;
-            for(int j = 0; j < ptrsLen; ++j){
-                if(data_ptrs[j] == node->data){
-                    skip = true;
-                    break;
+            if(node->data->namesLen > 1){
+                // if this data is connected to multiple nodes, check if weve already seen it and save it if not
+                bool skip = false;
+                for(int j = 0; j < ptrsLen; ++j){
+                    if(data_ptrs[j] == node->data){
+                        skip = true;
+                        break;
+                    }
                 }
+                if(skip){
+                    continue;
+                }
+                data_ptrs[ptrsLen++] = node->data;
             }
-            if(skip){
-                continue;
-            }
-            data_ptrs[ptrsLen++] = node->data;
             total += mapIterFunc(map, node->data, funcInput);
         }
-        if(count == map->len){
+        if(count == map->numKeys){
             break;
         }
     }
@@ -336,23 +343,47 @@ void popMapNode(map_t * map, const MapData * data){
 }
 
 void freeMap(map_t * map){
+    // array of ptrs to datas that we have already freed (so we don't double free)
+    const MapData * data_ptrs[map->numDatas];
+    memset(data_ptrs, (long) NULL,      (map->numDatas) * sizeof (const MapData *));
+    int ptrsLen = 0;
     for(int i = 0; i < MAP_ARR_LEN; ++i){
-        for(MapNode * node = map->ptrArray[i]; node != NULL; node = map->ptrArray[i]){
+        for(MapNode * node = map->ptrArray[i]; node != NULL; ){
             MapData * data = node->data;
-            // pop off all the nodes so we dont try to free them
-            popMapNode(map, data);
+            if(data->namesLen > 1){
+                // if this data is connected to multiple nodes, check if weve already seen it and save it if not
+                bool skip = false;
+                for(int j = 0; j < ptrsLen; ++j){
+                    if(data_ptrs[j] == data){
+                        skip = true;
+                        break;
+                    }
+                }
+                if(skip){
+                    MapNode * n = node->next;
+                    free(node);
+                    node = n;
+                    continue;
+                }
+                data_ptrs[ptrsLen++] = data;
+            }
             // free the node datas
             free(data->names);
             free(data->nameLens);
             free(data->data.defaultData);
+            // loop over the negations list and free its nodes
             for(mnllist_t * mnlNode = data->data.negations; mnlNode != NULL; ){
                 mnllist_t * n = mnlNode->next;
                 free(mnlNode);
                 mnlNode = n;
             }
+            MapNode * n = node->next;
             free(node);
+            node = n;
         }
     }
+    // TODO is this necessary or can I expect the user to do this if reusing the map?
+    initMap(map);
 }
 
 
