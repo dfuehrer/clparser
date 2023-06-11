@@ -44,12 +44,16 @@ char * parseArgSpec(char * buf, map_t * map, char argType[], void * defaultValue
         fprintf(stderr, "spec must end in ';', but got '%s'\n", buf);
         return NULL;        // there has to be a semicolon to end the definition    (should check for a NULL to err immediately)
     }
-    int posArrLen = 0;
-    int posArrSize = 0;
+    size_t posArrLen  = 0;
+    size_t posArrSize = 0;
     char * c = typeptr;
     for( ; *c == ' '; c++);
     char * ce = c + 1;
     if(*c == ';'){
+        if(positionalArray != NULL){
+            *positionalArray = (MapData * *) calloc(1, sizeof (MapData *));
+            (*positionalArray)[0] = NULL;
+        }
         return c;
     }
     // i guess for this i want different values like
@@ -139,9 +143,8 @@ char * parseArgSpec(char * buf, map_t * map, char argType[], void * defaultValue
             }
         }
         if(positionalArray != NULL){
-            if(posArrLen >= posArrSize - 1){
+            if(posArrLen + 1 >= posArrSize){
                 // allocate larger array when full
-                fprintf(stderr, "allocating pos array\n");
                 posArrSize += ARRAY_ALLOC_INCR;
                 *positionalArray = (MapData **) realloc(*positionalArray, posArrSize * sizeof (MapData *));
                 if(*positionalArray == NULL){
