@@ -40,15 +40,25 @@ This will prevent the command line arguments to be parsed from being interpreted
 command line arguments.
 .
 .SS Argument Specification Format
-The format specifies 
+The format specifies
 .I flags
 for setting some optional value to true and
 .I parameters
 for setting some (optional) value to the value passed in the command line arguments.
-Arguments as specified as either flags or parameters by being listed after
-.I flags:
+There are also
+.I positionals
+for setting some parameter values (like
+.IR parameters )
+through named positional arguments rather than specifying the name through
+.B \-n
 or
-.IR parameters: .
+.BR \-\-name .
+Arguments as specified as flags, parameters, or positionals by being listed after
+.IR flags: ,
+.IR parameters: ,
+or
+.IR positionals: ,
+respectively.
 Arguments are defined as in a space separated list, ended with a semicolon
 .RI ( ; ).
 E.g.:
@@ -56,8 +66,12 @@ E.g.:
 Arguments to be set together are listed together in a comma separated list.
 E.g.:
 .IR "flags: f,flags help,h test,t,T;" .
+.I positionals
+specify the positional arguments in the order given after the
+.I positionals:
+keyword.
 .PP
-Parameters can have default values.
+Parameters (and positionals) can have default values.
 Default values set the value of the parameters if the parameter is not set with the input command line arguments.
 Default values are set by appending an equals
 .RI ( = )
@@ -113,6 +127,12 @@ letters are specified after 1 dash
 .RB ( - ).
 Letters can be combined on the same input (e.g.:
 .BR \-aBc ).
+Word parameters can have dashes
+.RB ( - )
+in them.
+These words will be output with underscores
+.RB ( _ )
+instead of dashes to make a valid variable name.
 .PP
 Single letter parameters can be used in the combined format if they are the last letter and the value of the parameter is given as the next argument (e.g.:
 .BR "\-aBc value" ),
@@ -188,8 +208,28 @@ This is not a good option for `sh` since "$@" is the only way of splitting argum
 .PP
 .BR \-n ,
 .B \-\-namespace
-Namespace args by prepending flags_ or params_ to the variable names.
-This is only used for shells without associative arrays.
+Namespace args by putting them in associative arrays when available or prepending flags_ or params_ to the variable names.
+This option is on by default for shells with associative arrays.
+.PP
+.BR \-N ,
+.B \-\-no\-namespace
+Do not namespace args: set variable names directly, allowing flags and parameters to overlap.
+This option is on by default for shells without associative arrays.
+.PP
+.BR \-E ,
+.B \-\-no\-output\-empty
+Do not output parameters that do not have a value (not specified on command line and no default value).
+This can be helpful for a flag and parameter of the same name.
+E.g.: a choose flag to indicate to use some user input, but also have a parameter of the same name that takes the user input.
+This is only useful for shells that won't error on using undeclared variables that don't use associative arrays (sh and fish) (and namespace isn't used) (or no-namespace is used).
+.PP
+.BR \-u ,
+.BR \-P ,
+.B \-\-unknown\-positional
+Rather than error on unknown arguments, assume all further arguments are positional.
+This is basically allowing users to not need to pass in
+.B --
+to allow the rest of the arguments to be positional.
 .PP
 .BR \-e ,
 .B \-\-help\-exits
