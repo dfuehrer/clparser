@@ -222,6 +222,9 @@ Errors parseArgsBase(const int argc, const char * const * argv, map_t * flagMap,
     // positionalParams_ptr is a ptr to an array of positional args
     // TODO maybe try to accomodate if positionalParams_ptr is NULL
     *positionalParams_ptr = (const char **) calloc((argc+1), sizeof (const char *));
+    if(positionalParams_ptr == NULL){
+        error(4, 0, "couldnt allocate positional param array");
+    }
     memset(*positionalParams_ptr, (long) NULL, argc+1);
     const char ** thisDef = *positionalParams_ptr;
     MapData ** thisPosNode = positionalNodes;

@@ -151,11 +151,12 @@ int printKeyValues(const MapData * node, PrintValueData * inputData){
         // TODO should i actually be allocating this every time even though we usually wont need it
         char tmpstr[node->nameLens[i] + 1];
         // look for - in the names of the input
-        char * dashLoc = strchr(str, '-');
+        char * dashLoc = memchr(str, '-', node->nameLens[i]);
         if(dashLoc != NULL){
             // if found -, then duplicate str and replace all - with _
             strncpy(tmpstr, str, node->nameLens[i]);
-            for(dashLoc += tmpstr - str; dashLoc != NULL; dashLoc = strchr(dashLoc, '-')){
+            const char * strend = tmpstr + node->nameLens[i];
+            for(dashLoc += tmpstr - str; dashLoc != NULL; dashLoc = memchr(dashLoc, '-', strend - dashLoc)){
                 dashLoc[0] = '_';
             }
             str = tmpstr;

@@ -276,7 +276,6 @@ int main(int argc, const char * const argv[]){
         // if didnt get pos params, then free it rather than having explicit 0 positionals defined
         free(positionalParamNodes);
         positionalParamNodes = NULL;
-        fprintf(stderr, "got no positionals\n");
         if(noflag && noparam){
             fprintf(stderr, "found neither flags nor parameters nor positionals\n");
             return 2;
