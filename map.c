@@ -185,17 +185,13 @@ const void * setMapMemberData(map_t * map, const void * data, const char * key, 
     return nodeData->data.ptr;
 }
 
-const void * getMapMemberData(const map_t * map, const char * key, int len){
-    MapData * data = getMapNode(map, key, len);
-    if(data != NULL){
-        return data->data.ptr;
-    }
-    error(7, 0, "key '%.*s' does not exist in map", len, key);
-    return NULL;
+// NOTE get node data functions don't check if pointer null
+const void * getNodeData(MapData * node){
+    return node->data.ptr;
 }
 
-int  getMapMember_int (map_t * map, const char * key, int len){
-    const void * datas = getMapMemberData(map, key, len);
+int  getNode_int (MapData * node){
+    const void * datas = getNodeData(node);
     if(datas == NULL){
         //fprintf(stderr, "Did not find datas for %.*s\n", len, key);
         return -0;
@@ -205,9 +201,8 @@ int  getMapMember_int (map_t * map, const char * key, int len){
     int data = *((const int *)datas);
     return data;
 }
-// NOTE cant just use the int version because this doesnt store the size of the data so ints are too large
-bool getMapMember_bool(map_t * map, const char * key, int len){
-    const void * datas = getMapMemberData(map, key, len);
+bool getNode_bool(MapData * node){
+    const void * datas = getNodeData(node);
     if(datas == NULL){
         //fprintf(stderr, "Did not find datas for %.*s\n", len, key);
         return false;
@@ -215,6 +210,51 @@ bool getMapMember_bool(map_t * map, const char * key, int len){
     // TODO add int type specificness with the DataType enum (will need to not use getMapMemberData)
     bool data = *((const bool *)datas);
     return data;
+}
+char getNode_char(MapData * node){
+    const void * datas = getNodeData(node);
+    if(datas == NULL){
+        //fprintf(stderr, "Did not find datas for %.*s\n", len, key);
+        return '\000';
+    }
+    // TODO add int type specificness with the DataType enum (will need to not use getMapMemberData)
+    bool data = *((const char *)datas);
+    return data;
+}
+
+const void * getMapMemberData(const map_t * map, const char * key, int len){
+    MapData * node = getMapNode(map, key, len);
+    if(node != NULL){
+        return getNodeData(node);
+    }
+    error(7, 0, "key '%.*s' does not exist in map", len, key);
+    return NULL;
+}
+
+int  getMapMember_int (map_t * map, const char * key, int len){
+    MapData * node = getMapNode(map, key, len);
+    if(node != NULL){
+        return getNode_int(node);
+    }
+    error(7, 0, "key '%.*s' does not exist in map", len, key);
+    return -0;
+}
+// NOTE cant just use the int version because this doesnt store the size of the data so ints are too large
+bool getMapMember_bool(map_t * map, const char * key, int len){
+    MapData * node = getMapNode(map, key, len);
+    if(node != NULL){
+        return getNode_bool(node);
+    }
+    error(7, 0, "key '%.*s' does not exist in map", len, key);
+    return false;
+}
+char getMapMember_char(map_t * map, const char * key, int len){
+    MapData * node = getMapNode(map, key, len);
+    if(node != NULL){
+        return getNode_char(node);
+    }
+    error(7, 0, "key '%.*s' does not exist in map", len, key);
+    return '\000';
 }
 
 void setNodeNegation(MapData * data, MapData * negative){

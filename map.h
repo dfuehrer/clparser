@@ -11,6 +11,8 @@
 
 #define ARRAY_LENGTH(arr)   (sizeof arr / sizeof arr[0])
 #define STRVIEW(string)     ((StringView) {.str=string, .len=(ARRAY_LENGTH(string) - 1)})
+#define STR_LEN(string)     string, (ARRAY_LENGTH(string) - 1)
+#define LEN_STR(string)     (ARRAY_LENGTH(string) - 1), string
 #ifndef MIN
 #   define MIN(x, y)   ((y < x) ? y : x)
 #endif  // MIN
@@ -94,6 +96,10 @@ const void * getMapMemberData(const map_t * map, const char * key, int len);
 int  getMapMember_int (map_t * map, const char * key, int len);
 bool getMapMember_bool(map_t * map, const char * key, int len);
 char getMapMember_char(map_t * map, const char * key, int len);
+const void * getNodeData(MapData * node);
+int  getNode_int (MapData * node);
+bool getNode_bool(MapData * node);
+char getNode_char(MapData * node);
 
 void setNodeNegation(MapData * data, MapData * negative);
 
