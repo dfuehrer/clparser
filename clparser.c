@@ -293,9 +293,9 @@ int main(int argc, const char * const argv[]){
     helpNode = getMapNode(&flagMap, "help", 4);
     if(helpNode != NULL && *(const bool *)helpNode->data.ptr){
     //if(hasNode(&flagMap, "help", 4) && getMapMember_bool(&flagMap, "help", 4)){
-        printUsage(&flagMap, &paramMap, positionalParamNodes, progName);
+        printUsage(&flagMap, &paramMap, (const MapData **) positionalParamNodes, progName);
         if(helpMessage != NULL){
-            printHelp(&flagMap, &paramMap, positionalParamNodes, helpMessage);
+            printHelp(&flagMap, &paramMap, (const MapData **) positionalParamNodes, helpMessage);
         }
         if(helpExits){
             printExit(shell);
