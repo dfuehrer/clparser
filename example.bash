@@ -2,7 +2,7 @@
 
 # NOTE this file can be run with zsh and ksh just fine (clparser uses the same syntax for all 3)
 make || exit
-spec='flags: f,flag=-g=-h g=-h=-qwerty qwerty=-flag=-h=-g h,help; parameters: q,asdf u=defval nothing zzz,z,Z=someth; positionals:;'
+spec='flags: f,flag=-g=-h g=-h=-qwerty qwerty=-flag=-h=-g h,help; parameters: q,asdf u=defval nothing zzz,z,Z=someth; positionals: asdf test;'
 helpmsg='
 help = print this help message
 flag = a random flag

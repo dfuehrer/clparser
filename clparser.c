@@ -103,8 +103,8 @@ int main(int argc, const char * const argv[]){
     }
 
     // set the default value for the shell if not given
-    const char * shellStr =    shellNode->data.ptr;
-    const char * progName = progNameNode->data.ptr;
+    const char * shellStr = getNodeData(   shellNode);
+    const char * progName = getNodeData(progNameNode);
     char parentCommandStr[MAX_SHELL_LEN] = "";
     bool allocatedProgName = false;
     pid_t ppid = getppid();
@@ -137,7 +137,7 @@ int main(int argc, const char * const argv[]){
         allocatedProgName = progName != NULL;
     }
 
-    if(*(const bool *)helpNode->data.ptr){
+    if(getNode_bool(helpNode)){
         // TODO have the help info not print out to stderr
         printUsage(&flagMap_loc, &paramMap_loc, NULL, argv[0]);
         fprintf(stderr, "\tclparser takes in command line arguments to parse as command line arguments and a specification\n");
@@ -162,7 +162,7 @@ int main(int argc, const char * const argv[]){
 
     for(passedArgc = 0; passedArgs[passedArgc] != NULL && passedArgc <= argc; ++passedArgc);
 
-    const char * helpMessage = helpMsgNode->data.ptr;
+    const char * helpMessage = getNodeData(helpMsgNode);
 
     Shell shell;
     if      (strcmp(shellStr,    "sh") == 0 || strcmp(shellStr, "dash") == 0 || strcmp(shellStr, "ash") == 0){
@@ -181,15 +181,15 @@ int main(int argc, const char * const argv[]){
         shell = XONSH;
     }
 
-    bool helpExits =  *(const bool *)helpExitsNode   ->data.ptr;
-    bool useArgv   =  *(const bool *)overrideArgvNode->data.ptr;
-    if( !useArgv &&  !*(const bool *)maintainArgvNode->data.ptr && shell == SH){
+    bool helpExits =  getNode_bool(helpExitsNode   );
+    bool useArgv   =  getNode_bool(overrideArgvNode);
+    if( !useArgv &&  !getNode_bool(maintainArgvNode) && shell == SH){
         // if didnt set override or maintain argv, then default to maintain unless using SH since it has no arrays
         // (so the only way to maintain whitespace in sh is to use argv)
         useArgv = true;
     }
-    bool useNamespace =   *(const bool *)useNamespaceNode->data.ptr;
-    if( !useNamespace && !*(const bool *) noNamespaceNode->data.ptr){
+    bool useNamespace =   getNode_bool(useNamespaceNode);
+    if( !useNamespace && !getNode_bool( noNamespaceNode)){
         // if didnt set use/don't use namespace, then default to use namespace unless using SH, CSH, or FISH since they have no associative arrays
         switch(shell){
             case CSH:
@@ -210,8 +210,8 @@ int main(int argc, const char * const argv[]){
         .shell=shell,
         .useArgv=useArgv,
         .useNamespace=useNamespace,
-        .noOutputEmpty=*(const bool *)noOutEmptyNode->data.ptr,
-        .unknownPositional=*(const bool *)unkIsPosNode->data.ptr,
+        .noOutputEmpty=getNode_bool(noOutEmptyNode),
+        .unknownPositional=getNode_bool(unkIsPosNode),
     };
 
     // free the maps, should be done with the info now
@@ -291,7 +291,7 @@ int main(int argc, const char * const argv[]){
 
     //bool help = getMapMember_bool(&flagMap, "help", 4);
     helpNode = getMapNode(&flagMap, "help", 4);
-    if(helpNode != NULL && *(const bool *)helpNode->data.ptr){
+    if(helpNode != NULL && getNode_bool(helpNode)){
     //if(hasNode(&flagMap, "help", 4) && getMapMember_bool(&flagMap, "help", 4)){
         printUsage(&flagMap, &paramMap, (const MapData **) positionalParamNodes, progName);
         if(helpMessage != NULL){

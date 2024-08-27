@@ -218,7 +218,7 @@ char getNode_char(MapData * node){
         return '\000';
     }
     // TODO add int type specificness with the DataType enum (will need to not use getMapMemberData)
-    bool data = *((const char *)datas);
+    char data = *((const char *)datas);
     return data;
 }
 
