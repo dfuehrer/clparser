@@ -15,7 +15,7 @@ zzz  = a bunch of zs
 #$help && exit
 # print out the raw output
 echo raw output:
-vars="$(echo "$spec" | ./clparser -u --help-msg "$helpmsg" -- "$@")"
+vars="$(echo "$spec" | ./clparser -e --help-msg "$helpmsg" -- "$@")"
 ec=$?
 echo "$vars"
 if [ "$ec" -ne 0 ]; then
