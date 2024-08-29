@@ -358,6 +358,7 @@ Errors parseArgsPrint(const int argc, const char * const * argv, map_t * flagMap
         // find index of this string for printing out var to use
         for( ; i < argc && *thisDef != argv[i-1]; ++i);
         printShellValue(&argvData, shell);
+        ++i;
     }
     printEndArgs(shell, useArgv);
 
