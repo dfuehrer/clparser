@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 make || exit
-spec='flags: f,flag=-g=-h g=-h=-qwerty qwerty=-flag=-h=-g h,help; parameters: q,asdf u=defval nothing zzz,z,Z=someth;'
+spec='flags: f,flag=-g=-h g=-h=-qwerty qwerty=-flag=-h=-g h,help; parameters: q,asdf u=defval nothing zzz,z,Z=someth; positionals: asdf test;'
 helpmsg='
 help = print this help message
 flag = a random flag
@@ -35,5 +35,11 @@ echo q,asdf = "$asdf"
 echo u = "$u"
 echo nothing = "$nothing"
 echo zzz,z,Z = "$Z"
-printf 'default vals: %s\n' "$*"
+echo positional params:
+echo asdf = "$asdf"
+echo test = "$test"
+#printf 'default vals: %s\n' "$*"
 #printf 'default vals: %s\n' "$args"
+printf 'positional args:'
+printf " '%s'" "$@"
+printf '\n'

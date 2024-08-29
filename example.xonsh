@@ -1,6 +1,8 @@
 #!/usr/bin/env xonsh
 
 # NOTE if youre actually using this as reference, please just use argparse, its much better, more complete, less hacky, and actually python
+#   im not really even sure why i went through all the effort to be able to support xonsh
+#   maybe itll be easier to add more languages or something because of it, but mostly its just dumb
 
 echo $ARGS
 
@@ -11,7 +13,7 @@ echo $ARGS
 
 # TODO figure out how to get exiting working
 make or exit(1)
-spec = 'flags: f,flag=-g=-h g=-h=-qwerty qwerty=-flag=-h=-g h,help; parameters: q,asdf u=defval nothing zzz,z,Z=someth;'
+spec = 'flags: f,flag=-g=-h g=-h=-qwerty qwerty=-flag=-h=-g h,help; parameters: q,asdf u=defval nothing zzz,z,Z=someth; positionals: asdf test;'
 helpmsg = '''
 help = print this help message
 flag = a random flag
@@ -46,6 +48,9 @@ print(f'q,asdf  = {params["asdf"]}')
 print(f'u       = {params["u"]}')
 print(f'nothing = {params["nothing"]}')
 print(f'zzz,z,Z = {params["Z"]}')
+print('positional params:')
+print(f'asdf = {positionals["asdf"]}')
+print(f'test = {positionals["test"]}')
 #printf 'positional args: %s\n' $ARGS
 #print(f'positional args: {$ARGS}')
 print(f'positional args: {args}')

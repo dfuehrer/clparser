@@ -33,7 +33,9 @@ echo q,asdf  = "${params[asdf]}"
 echo u       = "${params[u]}"
 echo nothing = "${params[nothing]}"
 echo zzz,z,Z = "${params[Z]}"
-#printf 'positional args: %s\n' "$*"
+echo positional params:
+echo asdf = "${positionals[asdf]}"
+echo test = "${positionals[test]}"
 printf 'positional args:'
 printf " '%s'" "${args[@]}"
 printf '\n'
